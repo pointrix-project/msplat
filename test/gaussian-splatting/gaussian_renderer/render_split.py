@@ -11,8 +11,9 @@
 
 import torch
 import math
-from DifferentiablePointRender import (GaussianRasterizationSettings, compute_color_from_sh,
-                                          gaussian_preprocess, gaussian_render)
+from DifferentiablePointRender import (GaussianRasterizationSettings, compute_color_from_sh, compute_cov3d,
+                                        gaussian_preprocess, gaussian_render)
+    
 from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
 
@@ -40,15 +41,13 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     means3D = pc.get_xyz
     opacities = pc.get_opacity
 
-    # If precomputed 3d covariance is provided, use it. If not, then it will be computed from
-    # scaling / rotation by the rasterizer.
-    scales = None
-    rotations = None
-    cov3D_precomp = None
     scales = pc.get_scaling
     rotations = pc.get_rotation
 
-    cov3D_precomp = torch.Tensor([])
+    visibility_filter = None
+    cov3D_precomp = compute_cov3d(scales, rotations, visibility_filter)
+    scales = torch.Tensor([])
+    rotations = torch.Tensor([])
     
     # with torch.no_grad():
     depths, radii, means2D, cov3Ds, conics, tiles_touched = gaussian_preprocess(

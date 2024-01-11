@@ -231,7 +231,7 @@ __global__ void computeCov2DCUDA(int P,
 		for (int i = 0; i < 6; i++)
 			dL_dcov[6 * idx + i] = 0;
 	}
-
+	
 	// Gradients of loss w.r.t. upper 2x3 portion of intermediate matrix T
 	// cov2D = transpose(T) * transpose(Vrk) * T;
 	float dL_dT00 = 2 * (T[0][0] * Vrk[0][0] + T[0][1] * Vrk[0][1] + T[0][2] * Vrk[0][2]) * dL_da +

@@ -140,6 +140,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         grad_split['mean2D'] = render_pkg_split["viewspace_points"].grad.sum().item()
         for k in grad_origin:
             print("backward error:", k, abs(grad_origin[k] - grad_split[k]))
+            # print("backward error:", k, grad_origin[k], grad_split[k], abs(grad_origin[k] - grad_split[k]))
             
         # render_pkg = render_split(viewpoint_cam, gaussians, pipe, bg)
         # # render_pkg = render(viewpoint_cam, gaussians, pipe, bg)
