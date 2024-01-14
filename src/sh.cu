@@ -7,8 +7,6 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 namespace cg = cooperative_groups;
-// #include "auxiliary.h"
-
 
 
 // Spherical harmonics coefficients

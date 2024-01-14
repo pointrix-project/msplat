@@ -27,6 +27,6 @@ setup(
 	description="DifferentiablePointRender extension for Pointrix",
     url="https://github.com/NJU-3DV/DifferentiablePointRender",
     packages=['DifferentiablePointRender'],
-    ext_modules=[make_extension()],
+    # ext_modules=[make_extension()],
 	cmdclass={"build_ext": BuildExtension}
 )

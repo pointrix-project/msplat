@@ -37,19 +37,86 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         projmatrix=viewpoint_camera.full_proj_transform,
         debug=pipe.debug
     )
+    H = viewpoint_camera.image_height
+    W = viewpoint_camera.image_width
 
     means3D = pc.get_xyz
     opacities = pc.get_opacity
 
     scales = pc.get_scaling
     rotations = pc.get_rotation
+    """
+    p_hom = torch.cat([means3D, torch.ones_like(means3D[:, :1])], dim=-1) @ viewpoint_camera.full_proj_transform
+    p_proj = p_hom[:, :3] / (p_hom[:, 3:] + 0.0000001)
+    p_view = means3D @ viewpoint_camera.world_view_transform[:3, :3] + viewpoint_camera.world_view_transform[3, :3]
+    depths = p_view[:, 2:3]
+    means2D = torch.stack([
+        ((p_proj[:, 0] + 1.0) * W - 1) * 0.5,
+        ((p_proj[:, 1] + 1.0) * H - 1) * 0.5,
+    ], dim=-1)
+    
+    visibility_filter = torch.logical_not((p_view[:, 2] <= 0.2) | (p_proj[:, 0] < -1.3) | (p_proj[:, 0] > 1.3) | (p_proj[:, 1] < -1.3) | (p_proj[:, 1] > 1.3))
+    cov3D_precomp = compute_cov3d(scales, rotations, visibility_filter)
+    # import pdb; pdb.set_trace()
+    
+    t = p_view
+    t[:, :2] = torch.stack([
+        (t[:, 0] / t[:, 2]).clamp(-1.3 * tanfovx, 1.3 * tanfovx) * t[:, 2],
+        (t[:, 0] / t[:, 1]).clamp(-1.3 * tanfovy, 1.3 * tanfovy) * t[:, 2]
+    ], dim=-1) 
+    
+    focal_y = H / (2 * tanfovy)
+    focal_x = W / (2 * tanfovx)
+    z = torch.zeros_like(t[:, 2])
+    J = torch.stack([
+        focal_x / t[:, 2], z, -(focal_x * t[:, 0]) / (t[:, 2] * t[:, 2]),
+        z, focal_y / t[:, 2], -(focal_y * t[:, 1]) / (t[:, 2] * t[:, 2]),
+        z, z, z
+    ], dim=-1).reshape(-1, 3, 3)
+    T = J @ viewpoint_camera.world_view_transform[:3, :3].T[None]
+    Vrk = torch.stack([
+        cov3D_precomp[:, 0], cov3D_precomp[:, 1], cov3D_precomp[:, 2],
+        cov3D_precomp[:, 1], cov3D_precomp[:, 3], cov3D_precomp[:, 4],
+        cov3D_precomp[:, 2], cov3D_precomp[:, 4], cov3D_precomp[:, 5],
+    ], dim=-1).reshape(-1, 3, 3)
+    # import pdb; pdb.set_trace()
+    covs = T @ Vrk @ T.transpose(-1, -2)
+    cov2Ds = torch.stack([
+        covs[:, 0, 0] + 0.3, covs[:, 0, 1], covs[:, 1, 1] + 0.3
+    ], dim=-1)
+    
+    det = cov2Ds[:, 0] * cov2Ds[:, 2] - cov2Ds[:, 1] * cov2Ds[:, 1]
+    visibility_filter = torch.logical_and(visibility_filter, det != 0.0)
+    det_inv = 1 / det
 
+    mid = 0.5 * (cov2Ds[:, 0] + cov2Ds[:, 2]);
+    lambda1 = mid + (mid * mid - det).clamp_min(0.1).sqrt()
+    lambda2 = mid - (mid * mid - det).clamp_min(0.1).sqrt()
+    radii = torch.ceil(3 * torch.maximum(lambda1, lambda2).sqrt()).int()
+        
+    BLOCK_X = BLOCK_Y = 16
+    grid = [int((W + BLOCK_X - 1) / BLOCK_X), int((H + BLOCK_Y - 1) / BLOCK_Y)]
+    rect_min = torch.stack([
+        ((means2D[:, 0] - radii) / BLOCK_X).int().clamp(0, grid[0]),
+        ((means2D[:, 1] - radii) / BLOCK_Y).int().clamp(0, grid[1]),
+    ], dim=-1).int()
+    rect_max = torch.stack([
+        ((means2D[:, 0] + radii + BLOCK_X - 1) / BLOCK_X).int().clamp(0, grid[0]),
+        ((means2D[:, 1] + radii + BLOCK_Y - 1) / BLOCK_Y).int().clamp(0, grid[1]),
+    ], dim=-1).int()
+    tiles_touched = (rect_max[:, 0] - rect_min[:, 0]) * (rect_max[:, 1] - rect_min[:, 1])
+    visibility_filter = torch.logical_and(visibility_filter, tiles_touched != 0)
+    conics = torch.stack([
+        cov2Ds[:, 0], -cov2Ds[:, 1], cov2Ds[:, 2]
+    ], dim=-1) * det_inv[:, None]
+    import pdb; pdb.set_trace()
+    """
     visibility_filter = None
     cov3D_precomp = compute_cov3d(scales, rotations, visibility_filter)
+    # scales must be empty if cov3D_precomp is not None
     scales = torch.Tensor([])
     rotations = torch.Tensor([])
     
-    # with torch.no_grad():
     depths, radii, means2D, cov3Ds, conics, tiles_touched = gaussian_preprocess(
         means3D,
         scales,

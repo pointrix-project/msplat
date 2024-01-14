@@ -13,17 +13,66 @@
 #include "preprocess.h"
 #include "render.h"
 #include "sh.h"
+#include "cov.h"
 #include "rasterizer_impl.h"
 #include "config.h"
 #include <cuda_runtime_api.h>
 
 std::function<char*(size_t N)> resizeFunc(torch::Tensor& t) {
-    auto lambda = [&t](size_t N) {
-        t.resize_({(long long)N});
-		return reinterpret_cast<char*>(t.contiguous().data_ptr());
-    };
-    return lambda;
+  auto lambda = [&t](size_t N) {
+    t.resize_({(long long)N});
+    return reinterpret_cast<char*>(t.contiguous().data_ptr());
+  };
+  return lambda;
 }
+
+torch::Tensor
+computeCov3DForward(
+  const torch::Tensor& scales,
+	const torch::Tensor& rotations,
+	const torch::Tensor& visibility_filter
+){
+  const int P = scales.size(0);
+  auto float_opts = scales.options().dtype(torch::kFloat32);
+  torch::Tensor cov3Ds = torch::zeros({P, 6}, float_opts);
+  if(P != 0)
+  {
+	  computeCov3DForwardCUDA(
+	    P,
+      scales.contiguous().data_ptr<float>(),
+      rotations.contiguous().data_ptr<float>(),
+      visibility_filter.contiguous().data_ptr<bool>(),
+      cov3Ds.contiguous().data_ptr<float>());
+  }
+  return cov3Ds;
+}
+
+std::tuple<torch::Tensor, torch::Tensor>
+computeCov3DBackward(
+  const torch::Tensor& scales,
+	const torch::Tensor& rotations,
+	const torch::Tensor& visibility_filter,
+	const torch::Tensor& dL_dcov3Ds
+){
+  const int P = scales.size(0);
+  auto float_opts = scales.options().dtype(torch::kFloat32);
+  torch::Tensor dL_dscales = torch::zeros({P, 3}, float_opts);
+  torch::Tensor dL_drotations = torch::zeros({P, 4}, float_opts);
+  if(P != 0)
+  {
+	  computeCov3DBackwardCUDA(
+	    P,
+      scales.contiguous().data_ptr<float>(),
+      rotations.contiguous().data_ptr<float>(),
+      visibility_filter.contiguous().data_ptr<bool>(),
+      dL_dcov3Ds.contiguous().data_ptr<float>(),
+      dL_dscales.contiguous().data_ptr<float>(),
+      dL_drotations.contiguous().data_ptr<float>()
+    );
+  }
+  return std::make_tuple(dL_dscales, dL_drotations);
+}
+
 
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 PreprocessForward(
@@ -303,6 +352,10 @@ ComputeColorFromSHBackward(
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("compute_cov3d_forward", &computeCov3DForward);
+  m.def("compute_cov3d_backward", &computeCov3DBackward);
+  // m.def("compute_cov2d_forward", &computeCov2DForward);
+  // m.def("compute_cov2d_backward", &computeCov2DBackward);
   m.def("preprocess_forward", &PreprocessForward);
   m.def("preprocess_backward", &PreprocessBackward);
   m.def("render_forward", &RenderForward);

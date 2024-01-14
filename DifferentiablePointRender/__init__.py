@@ -1,7 +1,73 @@
 from typing import NamedTuple
 import torch
 
-from DifferentiablePointRender import _C
+try:
+    from DifferentiablePointRender import _C
+except:
+    import os
+    from torch.utils.cpp_extension import load
+    # parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    parent_dir = '/home/guchun/Projects/reconstruction/gaussian-splatting/DifferentiablePointRender'
+    _C = load(
+        name='DifferentiablePointRender_ext',
+        # extra_cuda_cflags=["-I " + os.path.join(parent_dir, "third_party/glm/"), "-O3"],
+        extra_cflags=["-O3"],
+        extra_include_paths=[
+            os.path.join(parent_dir, "include"),
+            os.path.join(parent_dir, "third_party/glm/"),
+        ],
+        sources=[
+            os.path.join(parent_dir, "src", "preprocess.cu"),
+            os.path.join(parent_dir, "src", "render.cu"),
+            os.path.join(parent_dir, "src", "sh.cu"),
+            os.path.join(parent_dir, "src", "cov.cu"),
+            os.path.join(parent_dir, "src", "ext.cpp"),
+        ],
+        verbose=True)
+
+class _ComputeCov3D(torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx,
+        scales,
+        rotations,
+        visibility_filter=None
+    ):
+        if visibility_filter is None:
+            visibility_filter = torch.ones_like(scales[:, 0], dtype=torch.bool)
+        # Restructure arguments the way that the C++ lib expects them
+        args = (
+            scales,
+            rotations,
+            visibility_filter,
+        )
+        cov3Ds = _C.compute_cov3d_forward(*args)
+        ctx.save_for_backward(scales, rotations, visibility_filter)
+        return cov3Ds
+
+    @staticmethod
+    def backward(ctx, dL_dcov3Ds):
+        scales, rotations, visibility_filter = ctx.saved_tensors
+
+        # Restructure args as C++ method expects them
+        args = (
+            scales,
+            rotations,
+            visibility_filter,
+            dL_dcov3Ds,
+        )
+
+        dL_dscales, dL_drotations = _C.compute_cov3d_backward(*args)
+
+        grads = (
+            dL_dscales,
+            dL_drotations,
+            None,  # visibility_filter
+        )
+
+        return grads
+
+compute_cov3d = _ComputeCov3D.apply
 
 class _ComputeColorFromSH(torch.autograd.Function):
     @staticmethod
@@ -64,7 +130,6 @@ class _GaussianPreprocess(torch.autograd.Function):
         cov3Ds_precomp,
         raster_settings,
     ):
-
         # Restructure arguments the way that the C++ lib expects them
         args = (
             means3D,
@@ -91,7 +156,7 @@ class _GaussianPreprocess(torch.autograd.Function):
         # Restore necessary values from context
         raster_settings = ctx.raster_settings
         means3D, scales, rotations, cov3Ds_precomp, depths, radii, means2D, cov3Ds, conics, tiles_touched = ctx.saved_tensors
-
+        
         # Restructure args as C++ method expects them
         args = (means3D, 
                 radii, 

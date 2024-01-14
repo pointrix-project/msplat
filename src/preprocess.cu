@@ -167,7 +167,7 @@ __global__ void PreprocessForwardCUDAKernel(int P,
 	auto idx = cg::this_grid().thread_rank();
 	if (idx >= P)
 		return;
-
+	
 	// Initialize radius and touched tiles to 0. If this isn't changed,
 	// this Gaussian will not be processed further.
 	radii[idx] = 0;
@@ -183,20 +183,26 @@ __global__ void PreprocessForwardCUDAKernel(int P,
 	float4 p_hom = transformPoint4x4(p_orig, projmatrix);
 	float p_w = 1.0f / (p_hom.w + 0.0000001f);
 	float3 p_proj = { p_hom.x * p_w, p_hom.y * p_w, p_hom.z * p_w };
-
+	
 	// If 3D covariance matrix is precomputed, use it, otherwise compute
 	// from scaling and rotation parameters. 
 	const float* cov3D;
 	if (cov3Ds_precomp != nullptr)
 	{
 		cov3D = cov3Ds_precomp + idx * 6;
+		cov3Ds[idx * 6 + 0] = cov3D[0];
+		cov3Ds[idx * 6 + 1] = cov3D[1];
+		cov3Ds[idx * 6 + 2] = cov3D[2];
+		cov3Ds[idx * 6 + 3] = cov3D[3];
+		cov3Ds[idx * 6 + 4] = cov3D[4];
+		cov3Ds[idx * 6 + 5] = cov3D[5];
 	}
 	else
 	{
 		computeCov3DForwardCUDAKernel(scales[idx], rotations[idx], cov3Ds + idx * 6);
 		cov3D = cov3Ds + idx * 6;
 	}
-
+	
 	// Compute 2D screen-space covariance matrix
 	float3 cov = computeCov2DForwardCUDAKernel(p_orig, focal_x, focal_y, tan_fovx, tan_fovy, cov3D, viewmatrix);
 	
@@ -292,6 +298,7 @@ __global__ void computeCov2DBackwardCUDAKernel(int P,
 
 	if (denom2inv != 0)
 	{
+		float* dL_dcov3D = dL_dcov3Ds + 6 * idx;
 		// Gradients of loss w.r.t. entries of 2D covariance matrix,
 		// given gradients of loss w.r.t. conic matrix (inverse covariance matrix).
 		// e.g., dL / da = dL / d_conic_a * d_conic_a / d_a
@@ -302,22 +309,17 @@ __global__ void computeCov2DBackwardCUDAKernel(int P,
 		// Gradients of loss L w.r.t. each 3D covariance matrix (Vrk) entry, 
 		// given gradients w.r.t. 2D covariance matrix (diagonal).
 		// cov2D = transpose(T) * transpose(Vrk) * T;
-		dL_dcov3Ds[6 * idx + 0] += (T[0][0] * T[0][0] * dL_da + T[0][0] * T[1][0] * dL_db + T[1][0] * T[1][0] * dL_dc);
-		dL_dcov3Ds[6 * idx + 3] += (T[0][1] * T[0][1] * dL_da + T[0][1] * T[1][1] * dL_db + T[1][1] * T[1][1] * dL_dc);
-		dL_dcov3Ds[6 * idx + 5] += (T[0][2] * T[0][2] * dL_da + T[0][2] * T[1][2] * dL_db + T[1][2] * T[1][2] * dL_dc);
+		dL_dcov3D[0] += (T[0][0] * T[0][0] * dL_da + T[0][0] * T[1][0] * dL_db + T[1][0] * T[1][0] * dL_dc);
+		dL_dcov3D[3] += (T[0][1] * T[0][1] * dL_da + T[0][1] * T[1][1] * dL_db + T[1][1] * T[1][1] * dL_dc);
+		dL_dcov3D[5] += (T[0][2] * T[0][2] * dL_da + T[0][2] * T[1][2] * dL_db + T[1][2] * T[1][2] * dL_dc);
 
 		// Gradients of loss L w.r.t. each 3D covariance matrix (Vrk) entry, 
 		// given gradients w.r.t. 2D covariance matrix (off-diagonal).
 		// Off-diagonal elements appear twice --> double the gradient.
 		// cov2D = transpose(T) * transpose(Vrk) * T;
-		dL_dcov3Ds[6 * idx + 1] += 2 * T[0][0] * T[0][1] * dL_da + (T[0][0] * T[1][1] + T[0][1] * T[1][0]) * dL_db + 2 * T[1][0] * T[1][1] * dL_dc;
-		dL_dcov3Ds[6 * idx + 2] += 2 * T[0][0] * T[0][2] * dL_da + (T[0][0] * T[1][2] + T[0][2] * T[1][0]) * dL_db + 2 * T[1][0] * T[1][2] * dL_dc;
-		dL_dcov3Ds[6 * idx + 4] += 2 * T[0][2] * T[0][1] * dL_da + (T[0][1] * T[1][2] + T[0][2] * T[1][1]) * dL_db + 2 * T[1][1] * T[1][2] * dL_dc;
-	}
-	else
-	{
-		for (int i = 0; i < 6; i++)
-			dL_dcov3Ds[6 * idx + i] += 0;
+		dL_dcov3D[1] += 2 * T[0][0] * T[0][1] * dL_da + (T[0][0] * T[1][1] + T[0][1] * T[1][0]) * dL_db + 2 * T[1][0] * T[1][1] * dL_dc;
+		dL_dcov3D[2] += 2 * T[0][0] * T[0][2] * dL_da + (T[0][0] * T[1][2] + T[0][2] * T[1][0]) * dL_db + 2 * T[1][0] * T[1][2] * dL_dc;
+		dL_dcov3D[4] += 2 * T[0][2] * T[0][1] * dL_da + (T[0][1] * T[1][2] + T[0][2] * T[1][1]) * dL_db + 2 * T[1][1] * T[1][2] * dL_dc;
 	}
 
 	// Gradients of loss w.r.t. upper 2x3 portion of intermediate matrix T
@@ -507,8 +509,8 @@ void PreprocessForwardCUDA(
 		cov3Ds,
 		conics,
 		tiles_touched
-		);
-    }
+	);
+}
 
 void PreprocessBackwardCUDA(
 	const int P, 
