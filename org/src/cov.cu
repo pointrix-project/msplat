@@ -114,6 +114,7 @@ __global__ void computeCov3DForwardCUDAKernel(
     compute_cov3d_forward(scales[idx], rotations[idx], cov3Ds + 6 * idx);
 }
 
+
 __global__ void computeCov3DBackwardCUDAKernel(
     const int P,
     const glm::vec3* scales,

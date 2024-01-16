@@ -478,7 +478,6 @@ int RenderForwardCUDA(
 }
 
 
-
 void RenderBackwardCUDA(
 	const int P, const int num_rendered,
 	const int width, const int height,
