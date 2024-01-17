@@ -383,7 +383,8 @@ RenderBackwardCUDAKernel(
 }
 
 int RenderForwardCUDA(
-	const int P, const int width, const int height,
+	const int P,
+	const int width, const int height,
 	const float* features,
 	const float* depths,
 	const int32_t* radii,
@@ -500,7 +501,7 @@ void RenderBackwardCUDA(
 	const dim3 tile_grid((width + BLOCK_X - 1) / BLOCK_X, (height + BLOCK_Y - 1) / BLOCK_Y, 1);
 	const dim3 block(BLOCK_X, BLOCK_Y, 1);
 
-	RenderBackwardCUDAKernel<NUM_CHANNELS> <<<tile_grid, block >>>(
+	RenderBackwardCUDAKernel<NUM_CHANNELS> <<<tile_grid, block>>>(
 		imgState.ranges,
 		binningState.point_list,
 		width, height,

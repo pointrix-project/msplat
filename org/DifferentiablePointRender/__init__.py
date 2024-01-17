@@ -4,27 +4,27 @@ import torch
 try:
     from DifferentiablePointRender import _C
 except:
-    raise ImportError("Fatal to load CUDA extension.")
-    # import os
-    # from torch.utils.cpp_extension import load
+    # raise ImportError("Fatal to load CUDA extension.")
+    import os
+    from torch.utils.cpp_extension import load
 
-    # parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # _C = load(
-    #     name='DifferentiablePointRender_ext',
-    #     # extra_cuda_cflags=["-I " + os.path.join(parent_dir, "third_party/glm/"), "-O3"],
-    #     extra_cflags=["-O3"],
-    #     extra_include_paths=[
-    #         os.path.join(parent_dir, "include"),
-    #         os.path.join(parent_dir, "third_party/glm/"),
-    #     ],
-    #     sources=[
-    #         os.path.join(parent_dir, "src", "preprocess.cu"),
-    #         os.path.join(parent_dir, "src", "render.cu"),
-    #         os.path.join(parent_dir, "src", "sh.cu"),
-    #         os.path.join(parent_dir, "src", "cov.cu"),
-    #         os.path.join(parent_dir, "src", "ext.cpp"),
-    #     ],
-    #     verbose=True)
+    parent_dir = "/home/gj/code/DifferentiablePointRender"
+    _C = load(
+        name='DifferentiablePointRender_ext',
+        # extra_cuda_cflags=["-I " + os.path.join(parent_dir, "third_party/glm/"), "-O3"],
+        extra_cflags=["-O3"],
+        extra_include_paths=[
+            os.path.join(parent_dir, "include"),
+            os.path.join(parent_dir, "third_party/glm/"),
+        ],
+        sources=[
+            os.path.join(parent_dir, "src", "preprocess.cu"),
+            os.path.join(parent_dir, "src", "render.cu"),
+            os.path.join(parent_dir, "src", "sh.cu"),
+            os.path.join(parent_dir, "src", "cov.cu"),
+            os.path.join(parent_dir, "src", "ext.cpp"),
+        ],
+        verbose=True)
 
 class _ComputeCov3D(torch.autograd.Function):
     @staticmethod

@@ -11,6 +11,10 @@
 
 import torch
 import math
+import sys
+
+sys.path.append("/home/gj/code/DifferentiablePointRender/org")
+
 from DifferentiablePointRender import (GaussianRasterizationSettings, compute_color_from_sh, compute_cov3d,
                                         gaussian_preprocess, gaussian_render)
     

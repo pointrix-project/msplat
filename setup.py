@@ -6,29 +6,26 @@ from torch.utils.cpp_extension import CUDAExtension, BuildExtension
 
 __version__ = "1.0.0"
 
+module_name = "DifferentiablePointRender"
+submodule_names = [
+    "GaussianSplatting"
+    # more submodules in the future
+]
+
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-print(ROOT_DIR)
+MODULAR_DIR = os.path.join(ROOT_DIR, module_name)
 
-def search_sources():
-    renderer_names = [d for d in os.listdir(ROOT_DIR) if os.path.isdir(d)]
-
-    sources = []
-    for renderer in renderer_names:
-        sources += glob.glob(os.path.join(ROOT_DIR, renderer, "src/*.c"))
-        sources += glob.glob(os.path.join(ROOT_DIR, renderer, "src/*.cu")) 
-        sources += glob.glob(os.path.join(ROOT_DIR, renderer, "src/*.cpp"))
+def search_sources(submodule):
+    
+    sources = glob.glob(os.path.join(f"{MODULAR_DIR}/{submodule}", "src/*.c"))
+    sources += glob.glob(os.path.join(f"{MODULAR_DIR}/{submodule}", "src/*.cu")) 
+    sources += glob.glob(os.path.join(f"{MODULAR_DIR}/{submodule}", "src/*.cpp"))
 
     return sources
 
 
 def search_includes():
-    renderer_names = [d for d in os.listdir(ROOT_DIR) if os.path.isdir(d)]
-
-    includes = []
-    for renderer in renderer_names:
-        includes += glob.glob(os.path.join(ROOT_DIR, renderer, "include"))
-
-    return includes
+    return glob.glob(os.path.join(f"{MODULAR_DIR}", "*/include"))
 
 
 def search_third_party():
@@ -42,28 +39,30 @@ def search_third_party():
     return third_parties
     
 
-def make_extension():
+def make_extensions():
+    exts = [CUDAExtension(
+            name=f"{module_name}.{submodule}._C",
+            sources=search_sources(submodule),
+            include_dirs=search_includes()+search_third_party(),
+            extra_compile_args={'cxx': ['-g'], 'nvcc': ['-g']},
+            #  extra_compile_args={"nvcc": ["-O3", "--use_fast_math"]}
+        )
+        for submodule in submodule_names
+    ]
     
-	ext = CUDAExtension(
-		name=f"DifferentiablePointRender._C",
-		sources=search_sources(),
-		include_dirs=search_includes()+search_third_party(),
-		extra_compile_args={"nvcc": ["-O3", "--use_fast_math"]}
-	)
-	return ext
-
+    return exts
 
 setup(
     name="DifferentiablePointRender",
     version=__version__,
-	description="Differentiable Point Render CUDA extension for Pointrix",
+    description="Differentiable Point Render CUDA extension for Pointrix",
     url="https://github.com/NJU-3DV/DifferentiablePointRender",
     python_requires=">=3.7",
     install_requires=[
         "torch",
         "jaxtyping"
     ],
-    packages=['DifferentiablePointRender'],
-    ext_modules=[make_extension()],
-	cmdclass={"build_ext": BuildExtension}
+    packages=[f"{module_name}"] + [f"{module_name}.{submodule}" for submodule in submodule_names],
+    ext_modules=make_extensions(),
+    cmdclass={"build_ext": BuildExtension}
 )

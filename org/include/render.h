@@ -7,7 +7,8 @@
 
 
 int RenderForwardCUDA(
-	const int P, const int width, const int height,
+	const int P,
+	const int width, const int height,
 	const float* features,
 	const float* depths,
 	const int32_t* radii,

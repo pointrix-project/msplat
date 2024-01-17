@@ -1,4 +1,6 @@
 .vscode
+*__pycache__
+*.pyc
 build
 DifferentiablePointRender.egg-info
 test/gaussian-splatting/data
