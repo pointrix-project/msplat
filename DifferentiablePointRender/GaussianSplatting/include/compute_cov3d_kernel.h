@@ -5,18 +5,18 @@
 void computeCov3DForwardCUDA(
 	const int P, 
 	const float* scales,
-	const float* rotations,
+	const float* uquats,
 	const bool* visibility_status,
 	float* cov3Ds);
 
 void computeCov3DBackwardCUDA(
 	const int P, 
 	const float* scales,
-	const float* rotations,
+	const float* uquats,
 	const bool* visibility_status,
 	const float* dL_dcov3Ds,
 	float* dL_dscales,
-	float* dL_drotations
+	float* dL_duquats
 );
 
 #endif

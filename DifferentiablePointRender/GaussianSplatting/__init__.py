@@ -1,7 +1,5 @@
 
-from .compute_cov3d import _ComputeCov3D
-
-compute_cov3d = _ComputeCov3D.apply
+from .compute_cov3d import compute_cov3d
 
 __all__ = [
     "compute_cov3d"

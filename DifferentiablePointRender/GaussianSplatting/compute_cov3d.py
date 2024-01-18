@@ -8,14 +8,14 @@ import DifferentiablePointRender.GaussianSplatting._C as _C
 def compute_cov3d(
     scales: Float[Tensor, "*batch 3"],
     uquats: Float[Tensor, "*batch 4"],
-    visibility_staus: Float[Tensor, ""] = None,
+    visibility_status: Float[Tensor, ""] = None,
 )->Tensor:
     """Compute the 3D covariance matrix.
 
     Args:
         scales (Tensor): _description_
         uquats (Tensor): _description_
-        visibility_staus (Tensor, optional): _description_. Defaults to None.
+        visibility_status (Tensor, optional): _description_. Defaults to None.
 
     Returns:
         - **cov3d** (Tensor): 3D covariance vector, upper right part of the covariance matrix.
@@ -26,8 +26,9 @@ def compute_cov3d(
     return _ComputeCov3D.apply(
         scales,
         uquats,
-        visibility_staus
+        visibility_status
     )
+
 
 class _ComputeCov3D(torch.autograd.Function):
     @staticmethod
@@ -35,9 +36,9 @@ class _ComputeCov3D(torch.autograd.Function):
         ctx, 
         scales, 
         uquats, 
-        visibility_staus):
+        visibility_status):
         
-        cov3Ds = gs._C.compute_cov3d_forward(
+        cov3Ds = _C.compute_cov3d_forward(
             scales, 
             uquats, 
             visibility_status
@@ -59,9 +60,9 @@ class _ComputeCov3D(torch.autograd.Function):
         (
             dL_dscales, 
             dL_duquats
-        ) = gs._C.compute_cov3d_backward(
+        ) = _C.compute_cov3d_backward(
             scales, 
-            rotations, 
+            uquats, 
             visibility_status, 
             dL_dcov3Ds
         )

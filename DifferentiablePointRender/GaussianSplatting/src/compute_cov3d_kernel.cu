@@ -11,11 +11,35 @@
  */
 
 #include <glm/glm.hpp>
+#include "glm/ext.hpp"
+#include<glm/gtc/quaternion.hpp>
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 #include <compute_cov3d_kernel.h>
 
 namespace cg = cooperative_groups;
+
+__device__ inline void PrintMatrix(const glm::vec3 vec)
+{
+    float* data = (float*)glm::value_ptr(vec);
+    printf("[%f %f %f]\n", data[0], data[1], data[2]);
+}
+
+__device__ inline void PrintMatrix(const glm::mat3 mat)
+{   // Column Major
+    float* data = (float*)glm::value_ptr(mat);
+    printf("[");
+    for(int i = 0; i < 3; i++){
+        printf("[");
+        for(int j = 0; j < 3; j++){
+            printf("%f ", data[j * 3 + i]);
+        }
+        printf("]");
+        if(i < 2)
+            printf("\n");
+    }
+    printf("]\n");
+}
 
 /**
  * @brief Helper function: transform a scaling vector to matrix
@@ -25,12 +49,13 @@ namespace cg = cooperative_groups;
  */
 __device__ inline glm::mat3 scale_vector_to_matrix(const glm::vec3 scale)
 {
-	glm::mat3 S = glm::mat3(1.0f);
-	S[0][0] = scale.x;
-	S[1][1] = scale.y;
-	S[2][2] = scale.z;
+    glm::mat3 S = glm::mat3(1.0f);
+    
+    S[0][0] = scale.x;
+    S[1][1] = scale.y;
+    S[2][2] = scale.z;
 
-	return S;
+    return S;
 }
 
 /**
@@ -42,21 +67,21 @@ __device__ inline glm::mat3 scale_vector_to_matrix(const glm::vec3 scale)
 __device__ inline glm::mat3 unit_quaternion_to_rotmatrix(const glm::vec4 uquat)
 {
     float r = uquat.x;
-	float x = uquat.y;
-	float y = uquat.z;
-	float z = uquat.w;
+    float x = uquat.y;
+    float y = uquat.z;
+    float z = uquat.w;
 
     return glm::mat3(
-		1.f - 2.f * (y * y + z * z), 
+        1.f - 2.f * (y * y + z * z), 
         2.f * (x * y - r * z), 
         2.f * (x * z + r * y),
-		2.f * (x * y + r * z), 
+        2.f * (x * y + r * z), 
         1.f - 2.f * (x * x + z * z), 
         2.f * (y * z - r * x),
-		2.f * (x * z - r * y), 
+        2.f * (x * z - r * y), 
         2.f * (y * z + r * x), 
         1.f - 2.f * (x * x + y * y)
-	);
+    );
 }
 
 
@@ -69,19 +94,20 @@ __device__ inline glm::mat3 unit_quaternion_to_rotmatrix(const glm::vec4 uquat)
  * @param[out] cov3D   Covariance vector, the upper right part of the covariance matrix
  */
 __device__ void compute_cov3d_forward(
-	const glm::vec3 scale, 
-	const glm::vec4 quat, 
-	float* cov3D)
+    const glm::vec3 scale, 
+    const glm::vec4 quat, 
+    float* cov3D)
 {
 	glm::mat3 S = scale_vector_to_matrix(scale);
 	glm::mat3 R = unit_quaternion_to_rotmatrix(quat);
+
+    // Note: Colume Major, and right multiply.
 	glm::mat3 M = S * R;
+    glm::mat3 Sigma = glm::transpose(M) * M;
 
-	glm::mat3 Sigma = glm::transpose(M) * M;
-
-	cov3D[0] = Sigma[0][0]; cov3D[1] = Sigma[0][1]; 
-	cov3D[2] = Sigma[0][2]; cov3D[3] = Sigma[1][1]; 
-	cov3D[4] = Sigma[1][2]; cov3D[5] = Sigma[2][2];
+    cov3D[0] = Sigma[0][0]; cov3D[1] = Sigma[0][1]; 
+    cov3D[2] = Sigma[0][2]; cov3D[3] = Sigma[1][1]; 
+    cov3D[4] = Sigma[1][2]; cov3D[5] = Sigma[2][2];
 }
 
 /**
@@ -95,61 +121,60 @@ __device__ void compute_cov3d_forward(
  * @param[out] dL_dquat   loss gradient w.r.t. unit quaternion
  */
 __device__ void compute_cov3_backward(
-	const glm::vec3 scale, 
-	const glm::vec4 quat, 
-	const float* dL_dcov3D, 
-	glm::vec3& dL_dscale, 
-	glm::vec4& dL_dquat)
+    const glm::vec3 scale, 
+    const glm::vec4 quat, 
+    const float* dL_dcov3D, 
+    glm::vec3& dL_dscale, 
+    glm::vec4& dL_dquat)
 {
-	glm::mat3 S = scale_vector_to_matrix(scale);
-	glm::mat3 R = unit_quaternion_to_rotmatrix(quat);
-	glm::mat3 M = S * R;
+    glm::mat3 S = scale_vector_to_matrix(scale);
+    glm::mat3 R = unit_quaternion_to_rotmatrix(quat);
+    glm::mat3 M = S * R;
 
-	// Convert covariance loss gradients from vector to matrix
-	glm::mat3 dL_dSigma = glm::mat3(
-		dL_dcov3D[0], 0.5f * dL_dcov3D[1], 0.5f * dL_dcov3D[2],
-		0.5f * dL_dcov3D[1], dL_dcov3D[3], 0.5f * dL_dcov3D[4],
-		0.5f * dL_dcov3D[2], 0.5f * dL_dcov3D[4], dL_dcov3D[5]
-	);
+    // Convert covariance loss gradients from vector to matrix
+    glm::mat3 dL_dSigma = glm::mat3(
+        dL_dcov3D[0], 0.5f * dL_dcov3D[1], 0.5f * dL_dcov3D[2],
+        0.5f * dL_dcov3D[1], dL_dcov3D[3], 0.5f * dL_dcov3D[4],
+        0.5f * dL_dcov3D[2], 0.5f * dL_dcov3D[4], dL_dcov3D[5]
+    );
 
-	// Loss gradient w.r.t. matrix M
-	// dSigma_dM = 2 * M
-	glm::mat3 dL_dM = 2.0f * M * dL_dSigma;
+    // Loss gradient w.r.t. matrix M
+    // dSigma_dM = 2 * M
+    glm::mat3 dL_dM = 2.0f * M * dL_dSigma;
 
-	// Loss gradient w.r.t. scale
-	glm::mat3 Rt = glm::transpose(R);
-	glm::mat3 dL_dMt = glm::transpose(dL_dM);
+    // Loss gradient w.r.t. scale
+    glm::mat3 Rt = glm::transpose(R);
+    glm::mat3 dL_dMt = glm::transpose(dL_dM);
 
-	dL_dscale.x = glm::dot(Rt[0], dL_dMt[0]);
-	dL_dscale.y = glm::dot(Rt[1], dL_dMt[1]);
-	dL_dscale.z = glm::dot(Rt[2], dL_dMt[2]);
+    dL_dscale.x = glm::dot(Rt[0], dL_dMt[0]);
+    dL_dscale.y = glm::dot(Rt[1], dL_dMt[1]);
+    dL_dscale.z = glm::dot(Rt[2], dL_dMt[2]);
 
-	dL_dMt[0] *= scale.x;
-	dL_dMt[1] *= scale.y;
-	dL_dMt[2] *= scale.z;
+    dL_dMt[0] *= scale.x;
+    dL_dMt[1] *= scale.y;
+    dL_dMt[2] *= scale.z;
 
-	// Loss gradients w.r.t. unit quaternion
+    // Loss gradients w.r.t. unit quaternion
     float r = quat.x;
-	float x = quat.y;
-	float y = quat.z;
-	float z = quat.w;
+    float x = quat.y;
+    float y = quat.z;
+    float z = quat.w;
 
-	glm::vec4 dL_dq;
-	dL_dq.x = 2 * z * (dL_dMt[0][1] - dL_dMt[1][0]) +
-			  2 * y * (dL_dMt[2][0] - dL_dMt[0][2]) +
-			  2 * x * (dL_dMt[1][2] - dL_dMt[2][1]);
-	dL_dq.y = 2 * y * (dL_dMt[1][0] + dL_dMt[0][1]) +
-			  2 * z * (dL_dMt[2][0] + dL_dMt[0][2]) +
-			  2 * r * (dL_dMt[1][2] - dL_dMt[2][1]) -
-			  4 * x * (dL_dMt[2][2] + dL_dMt[1][1]);
-	dL_dq.z = 2 * x * (dL_dMt[1][0] + dL_dMt[0][1]) +
-			  2 * r * (dL_dMt[2][0] - dL_dMt[0][2]) +
-			  2 * z * (dL_dMt[1][2] + dL_dMt[2][1]) -
-			  4 * y * (dL_dMt[2][2] + dL_dMt[0][0]);
-	dL_dq.w = 2 * r * (dL_dMt[0][1] - dL_dMt[1][0]) +
-			  2 * x * (dL_dMt[2][0] + dL_dMt[0][2]) +
-			  2 * y * (dL_dMt[1][2] + dL_dMt[2][1]) -
-			  4 * z * (dL_dMt[1][1] + dL_dMt[0][0]);
+    dL_dquat.x = 2 * z * (dL_dMt[0][1] - dL_dMt[1][0]) +
+              2 * y * (dL_dMt[2][0] - dL_dMt[0][2]) +
+              2 * x * (dL_dMt[1][2] - dL_dMt[2][1]);
+    dL_dquat.y = 2 * y * (dL_dMt[1][0] + dL_dMt[0][1]) +
+              2 * z * (dL_dMt[2][0] + dL_dMt[0][2]) +
+              2 * r * (dL_dMt[1][2] - dL_dMt[2][1]) -
+              4 * x * (dL_dMt[2][2] + dL_dMt[1][1]);
+    dL_dquat.z = 2 * x * (dL_dMt[1][0] + dL_dMt[0][1]) +
+              2 * r * (dL_dMt[2][0] - dL_dMt[0][2]) +
+              2 * z * (dL_dMt[1][2] + dL_dMt[2][1]) -
+              4 * y * (dL_dMt[2][2] + dL_dMt[0][0]);
+    dL_dquat.w = 2 * r * (dL_dMt[0][1] - dL_dMt[1][0]) +
+              2 * x * (dL_dMt[2][0] + dL_dMt[0][2]) +
+              2 * y * (dL_dMt[1][2] + dL_dMt[2][1]) -
+              4 * z * (dL_dMt[1][1] + dL_dMt[0][0]);
 }
 
 /**
@@ -157,26 +182,26 @@ __device__ void compute_cov3_backward(
  * 
  * @param[in] P                   Number of points to process.
  * @param[in] scales              Array of 3D scales for each point.
- * @param[in] rotations           Array of 3D rotations (quaternions) for each point.
+ * @param[in] uquats              Array of 3D rotations (unit quaternions) for each point.
  * @param[in] visibility_status   Array indicating the visibility status of each point.
  * @param[out] cov3Ds             Output array for storing the computed 3D covariance vectors. 
  */
 __global__ void computeCov3DForwardCUDAKernel(
     const int P,
     const glm::vec3* scales,
-    const glm::vec4* rotations,
+    const glm::vec4* uquats,
     const bool* visibility_status,
     float* cov3Ds)
 {
     auto idx = cg::this_grid().thread_rank();
-	if (idx >= P || !visibility_status[idx])
-		return;
+    if (idx >= P || !visibility_status[idx])
+        return;
 
     compute_cov3d_forward(
-		scales[idx], 
-		rotations[idx], 
-		cov3Ds + 6 * idx
-	);
+        scales[idx], 
+        uquats[idx], 
+        cov3Ds + 6 * idx
+    );
 }
 
 /**
@@ -184,32 +209,32 @@ __global__ void computeCov3DForwardCUDAKernel(
  *
  * @param[in] P                    Number of points to process.
  * @param[in] scales               Array of 3D scales for each point.
- * @param[in] rotations            Array of 3D rotations (quaternions) for each point.
+ * @param[in] uquats               Array of 3D rotations (unit quaternions) for each point.
  * @param[in] visibility_status    Array indicating the visibility status of each point.
  * @param[in] dL_dcov3Ds           Gradients of the loss with respect to the 3D covariance matrices.
  * @param[out] dL_dscales          Output array for storing the gradients of the loss with respect to scales.
- * @param[out] dL_drotations       Output array for storing the gradients of the loss with respect to rotations.
+ * @param[out] dL_duquats          Output array for storing the gradients of the loss with respect to unit quaternions.
  */
 __global__ void computeCov3DBackwardCUDAKernel(
     const int P,
     const glm::vec3* scales,
-    const glm::vec4* rotations,
+    const glm::vec4* uquats,
     const bool* visibility_status,
     const float* dL_dcov3Ds,
     glm::vec3* dL_dscales,
-    glm::vec4* dL_drotations)
+    glm::vec4* dL_duquats)
 {
     auto idx = cg::this_grid().thread_rank();
-	if (idx >= P || !visibility_status[idx])
-		return;
+    if (idx >= P || !visibility_status[idx])
+        return;
 
     compute_cov3_backward(
-		scales[idx], 
-		rotations[idx], 
-		dL_dcov3Ds + 6 * idx, 
-		dL_dscales[idx], 
-		dL_drotations[idx]
-	);
+        scales[idx], 
+        uquats[idx], 
+        dL_dcov3Ds + 6 * idx, 
+        dL_dscales[idx], 
+        dL_duquats[idx]
+    );
 }
 
 /**
@@ -217,24 +242,24 @@ __global__ void computeCov3DBackwardCUDAKernel(
  *
  * @param P                   Number of points to process.
  * @param scales              Array of 3D scales for each point.
- * @param rotations           Array of 3D rotations for each point.
+ * @param uquats              Array of 3D rotations (unit quaternions) for each point.
  * @param visibility_status   Array indicating the visibility status of each point.
  * @param cov3Ds              Output array for storing the computed 3D covariance matrices.
  */
 void computeCov3DForwardCUDA(
-	const int P, 
-	const float* scales, 
-	const float* rotations, 
-	const bool* visibility_status,
-	float* cov3Ds)
+    const int P, 
+    const float* scales, 
+    const float* uquats, 
+    const bool* visibility_status,
+    float* cov3Ds)
 {
-	computeCov3DForwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
-		P, 
-		(glm::vec3*)scales, 
-		(glm::vec4*)rotations, 
-		visibility_status,
-		cov3Ds
-	);
+    computeCov3DForwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
+        P, 
+        (glm::vec3*)scales, 
+        (glm::vec4*)uquats, 
+        visibility_status,
+        cov3Ds
+    );
 }
 
 /**
@@ -243,28 +268,28 @@ void computeCov3DForwardCUDA(
  *
  * @param P                   Number of points to process.
  * @param scales              Array of 3D scales for each point.
- * @param rotations           Array of 3D rotations for each point.
+ * @param uquats              Array of 3D rotations (unit quaternions) for each point.
  * @param visibility_status   Array indicating the visibility status of each point.
  * @param dL_dcov3Ds          Gradients of the loss with respect to the 3D covariance matrices.
  * @param dL_dscales          Output array for storing the gradients of the loss with respect to scales.
- * @param dL_drotations       Output array for storing the gradients of the loss with respect to rotations.
+ * @param dL_duquats          Output array for storing the gradients of the loss with respect to rotations.
  */
 void computeCov3DBackwardCUDA(
-	const int P, 
-	const float* scales,
-	const float* rotations,
-	const bool* visibility_status,
-	const float* dL_dcov3Ds,
-	float* dL_dscales,
-	float* dL_drotations)
+    const int P, 
+    const float* scales,
+    const float* uquats,
+    const bool* visibility_status,
+    const float* dL_dcov3Ds,
+    float* dL_dscales,
+    float* dL_duquats)
 {
-	computeCov3DBackwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
-		P, 
-		(glm::vec3*)scales, 
-		(glm::vec4*)rotations, 
-		visibility_status,
-		dL_dcov3Ds, 
-		(glm::vec3*)dL_dscales, 
-		(glm::vec4*)dL_drotations
-	);
+    computeCov3DBackwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
+        P, 
+        (glm::vec3*)scales, 
+        (glm::vec4*)uquats, 
+        visibility_status,
+        dL_dcov3Ds, 
+        (glm::vec3*)dL_dscales, 
+        (glm::vec4*)dL_duquats
+    );
 }

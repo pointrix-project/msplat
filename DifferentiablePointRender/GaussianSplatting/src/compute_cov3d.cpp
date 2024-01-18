@@ -7,24 +7,23 @@ torch::Tensor
 computeCov3DForward(
   const torch::Tensor& scales,
   const torch::Tensor& uquats,
-  const torch::Tensor& visibility_staus
+  const torch::Tensor& visibility_status
 ){
 
   CHECK_INPUT(scales);
   CHECK_INPUT(uquats);
-  CHECK_INPUT(visibility_staus);
+  CHECK_INPUT(visibility_status);
 
   const int P = scales.size(0);
   auto float_opts = scales.options().dtype(torch::kFloat32);
   torch::Tensor cov3Ds = torch::zeros({P, 6}, float_opts);
   if(P != 0)
-  
   {
       computeCov3DForwardCUDA(
         P,
-        scales.data_ptr<float>(),
-        uquats.data_ptr<float>(),
-        visibility_staus.data_ptr<bool>(),
+        scales.contiguous().data_ptr<float>(),
+        uquats.contiguous().data_ptr<float>(),
+        visibility_status.contiguous().data_ptr<bool>(),
         cov3Ds.data_ptr<float>());
   }
 
@@ -35,13 +34,13 @@ std::tuple<torch::Tensor, torch::Tensor>
 computeCov3DBackward(
   const torch::Tensor& scales,
 	const torch::Tensor& uquats,
-	const torch::Tensor& visibility_staus,
+	const torch::Tensor& visibility_status,
 	const torch::Tensor& dL_dcov3Ds
 ){
 
   CHECK_INPUT(scales);
   CHECK_INPUT(uquats);
-  CHECK_INPUT(visibility_staus);
+  CHECK_INPUT(visibility_status);
   CHECK_INPUT(dL_dcov3Ds);
 
   const int P = scales.size(0);
@@ -53,10 +52,10 @@ computeCov3DBackward(
   {
       computeCov3DBackwardCUDA(
             P,
-            scales.data_ptr<float>(),
-            uquats.data_ptr<float>(),
-            visibility_staus.data_ptr<bool>(),
-            dL_dcov3Ds.data_ptr<float>(),
+            scales.contiguous().data_ptr<float>(),
+            uquats.contiguous().data_ptr<float>(),
+            visibility_status.contiguous().data_ptr<bool>(),
+            dL_dcov3Ds.contiguous().data_ptr<float>(),
             dL_dscales.data_ptr<float>(),
             dL_drotations.data_ptr<float>()
     );
