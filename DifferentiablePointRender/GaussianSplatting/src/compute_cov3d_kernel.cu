@@ -1,8 +1,7 @@
-
 /**
- * @file compute_cov3d.cu
+ * @file compute_cov3d_kernel.cu
  * @author Jian Gao
- * @brief CUDA kernel for transforming scaling and rotation to a covariance matrix in 3D space.
+ * @brief CUDA kernel to compute 3D covariance matrices.
  * @version 0.1
  * @date 2024-01-17
  * 
@@ -11,35 +10,13 @@
  */
 
 #include <glm/glm.hpp>
-#include "glm/ext.hpp"
-#include<glm/gtc/quaternion.hpp>
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 #include <compute_cov3d_kernel.h>
 
 namespace cg = cooperative_groups;
 
-__device__ inline void PrintMatrix(const glm::vec3 vec)
-{
-    float* data = (float*)glm::value_ptr(vec);
-    printf("[%f %f %f]\n", data[0], data[1], data[2]);
-}
 
-__device__ inline void PrintMatrix(const glm::mat3 mat)
-{   // Column Major
-    float* data = (float*)glm::value_ptr(mat);
-    printf("[");
-    for(int i = 0; i < 3; i++){
-        printf("[");
-        for(int j = 0; j < 3; j++){
-            printf("%f ", data[j * 3 + i]);
-        }
-        printf("]");
-        if(i < 2)
-            printf("\n");
-    }
-    printf("]\n");
-}
 
 /**
  * @brief Helper function: transform a scaling vector to matrix
@@ -237,15 +214,7 @@ __global__ void computeCov3DBackwardCUDAKernel(
     );
 }
 
-/**
- * @brief Wrapper function for launching the CUDA kernel to compute 3D covariance matrices in a forward pass.
- *
- * @param P                   Number of points to process.
- * @param scales              Array of 3D scales for each point.
- * @param uquats              Array of 3D rotations (unit quaternions) for each point.
- * @param visibility_status   Array indicating the visibility status of each point.
- * @param cov3Ds              Output array for storing the computed 3D covariance matrices.
- */
+
 void computeCov3DForwardCUDA(
     const int P, 
     const float* scales, 
@@ -262,18 +231,7 @@ void computeCov3DForwardCUDA(
     );
 }
 
-/**
- * @brief Wrapper function for launching the CUDA kernel to compute gradients in a backward pass
- *        of 3D covariance computation.
- *
- * @param P                   Number of points to process.
- * @param scales              Array of 3D scales for each point.
- * @param uquats              Array of 3D rotations (unit quaternions) for each point.
- * @param visibility_status   Array indicating the visibility status of each point.
- * @param dL_dcov3Ds          Gradients of the loss with respect to the 3D covariance matrices.
- * @param dL_dscales          Output array for storing the gradients of the loss with respect to scales.
- * @param dL_duquats          Output array for storing the gradients of the loss with respect to rotations.
- */
+
 void computeCov3DBackwardCUDA(
     const int P, 
     const float* scales,

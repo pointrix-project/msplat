@@ -38,7 +38,8 @@ def compute_cov3d_torch_impl(scales, uquats):
 if __name__ == "__main__":
     iters = 1000
     N = 2000
-
+    
+    # generate data
     rand_scale = torch.randn(N, 3, device="cuda", dtype=torch.float)
     rand_quats = torch.randn(N, 4, device="cuda", dtype=torch.float)
     rand_uquats = rand_quats / torch.norm(rand_quats, 2, dim=-1, keepdim=True)
@@ -49,6 +50,7 @@ if __name__ == "__main__":
     uquats1 = rand_uquats.clone().requires_grad_()
     uquats2 = rand_uquats.clone().requires_grad_()
     
+    # ============================================ Forward =====================================
     print("forward: ")
     t = time.time()
     for i in range(iters):
@@ -64,6 +66,7 @@ if __name__ == "__main__":
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
     torch.testing.assert_close(out_pytorch, out_cude)
     
+    # ============================================ Backward =====================================
     print("backward: ")
     t = time.time()
     loss = out_pytorch.sum()
