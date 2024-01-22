@@ -8,9 +8,9 @@ import DifferentiablePointRender.GaussianSplatting._C as _C
 
 def project_point(
     xyz: Float[Tensor, "*batch 3"],
-    viewmat: Float[Tensor, "*batch 4 4"],
-    projmat: Float[Tensor, "*batch 4 4"],
-    camparam: Float[Tensor, "*batch 4"],
+    viewmat: Float[Tensor, "4 4"],
+    projmat: Float[Tensor, "4 4"],
+    camparam: Float[Tensor, "4"],
     W: int, H: int,
     nearest: float = 0.2,
     extent: float = 1.3
@@ -31,9 +31,9 @@ class _ProjectPoint(torch.autograd.Function):
     def forward(
         ctx,
         xyz: Float[Tensor, "*batch 3"],
-        viewmat: Float[Tensor, "*batch 4 4"],
-        projmat: Float[Tensor, "*batch 4 4"],
-        camparam: Float[Tensor, "*batch 4"],
+        viewmat: Float[Tensor, "4 4"],
+        projmat: Float[Tensor, "4 4"],
+        camparam: Float[Tensor, "4"],
         W: int, H: int,
         nearest: float,
         extent: float

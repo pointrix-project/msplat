@@ -21,7 +21,7 @@ def compute_cov3d(
         - **cov3d** (Tensor): 3D covariance vector, upper right part of the covariance matrix.
     """
     if visibility_status is None:
-            visibility_status = torch.ones_like(scales[:, 0], dtype=torch.bool)
+        visibility_status = torch.ones_like(scales[:, 0], dtype=torch.bool)
     
     return _ComputeCov3D.apply(
         scales,

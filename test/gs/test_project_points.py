@@ -84,6 +84,8 @@ if __name__ == "__main__":
     iters = 1
     N = 100000
     
+    print("=============================== running test on project_points ===============================")
+    
     W = 800
     H = 800
     

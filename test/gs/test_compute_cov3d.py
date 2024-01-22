@@ -39,6 +39,7 @@ if __name__ == "__main__":
     iters = 1000
     N = 2000
     
+    print("=============================== running test on compute_cov3d ===============================")
     # generate data
     rand_scale = torch.randn(N, 3, device="cuda", dtype=torch.float)
     rand_quats = torch.randn(N, 4, device="cuda", dtype=torch.float)
@@ -60,11 +61,11 @@ if __name__ == "__main__":
 
     t = time.time()
     for i in range(iters):
-        out_cude = gs.compute_cov3d(scales2, uquats2);
+        out_cuda = gs.compute_cov3d(scales2, uquats2);
     
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
-    torch.testing.assert_close(out_pytorch, out_cude)
+    torch.testing.assert_close(out_pytorch, out_cuda)
     
     # ============================================ Backward =====================================
     print("backward: ")
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     print("  pytorch runtime: ", (time.time() - t) / iters, " s")
 
     t = time.time()
-    loss2 = out_cude.sum()
+    loss2 = out_cuda.sum()
     loss2.backward()
     torch.cuda.synchronize()
     
