@@ -56,7 +56,9 @@ class _ComputeSH(torch.autograd.Function):
         return color
 
     @staticmethod
-    def backward(ctx, dL_dcolor):
+    def backward(
+        ctx, 
+        dL_dcolor):
         
         # get saved variables from forward
         degree = ctx.degree
