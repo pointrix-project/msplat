@@ -4,9 +4,6 @@ import math
 import torch
 import DifferentiablePointRender.GaussianSplatting as gs
 
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-
 
 def ndc_to_pixel(ndc, size):
     return ((ndc + 1.0) * size - 1.0) * 0.5
@@ -147,13 +144,13 @@ if __name__ == "__main__":
     # ============================================ Backward =====================================
     print("backward: ")
     t = time.time()
-    loss = out_pytorch_uv.sum()
+    loss = out_pytorch_uv.sum() + out_pytorch_depth.sum()
     loss.backward()
     torch.cuda.synchronize()
     print("  pytorch runtime: ", (time.time() - t) / iters, " s")
 
     t = time.time()
-    loss2 = out_cuda_uv.sum()
+    loss2 = out_cuda_uv.sum() + out_cuda_depth.sum()
     loss2.backward()
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
