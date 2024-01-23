@@ -1,8 +1,11 @@
 
 
+#include <utils.h>
 #include <glm/glm.hpp>
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
+#include <torch/torch.h>
+
 namespace cg = cooperative_groups;
 
 
@@ -257,4 +260,76 @@ void computeSHBackwardCUDA(
         (glm::vec3*)dL_dshs,
         (glm::vec3*)dL_ddirs
     );
+}
+
+
+std::tuple<torch::Tensor, torch::Tensor> 
+computeSHForward(
+    const torch::Tensor& shs,
+    const int degree,
+    const torch::Tensor& view_dirs,
+    const torch::Tensor& visibility_status
+){
+    CHECK_INPUT(shs);
+    CHECK_INPUT(view_dirs);
+    CHECK_INPUT(visibility_status);
+
+    const int P = shs.size(0);
+    auto float_opts = shs.options().dtype(torch::kFloat32);
+    auto bool_ops = shs.options().dtype(torch::kBool);
+    torch::Tensor colors = torch::zeros({P, 3}, float_opts);
+    torch::Tensor clamped = torch::ones({P, 3}, bool_ops);
+
+    if(P != 0)
+    {
+        computeSHForwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
+            P, 
+            (const glm::vec3*)shs.contiguous().data_ptr<float>(), 
+            degree, 
+            (const glm::vec3*)view_dirs.contiguous().data_ptr<float>(), 
+            visibility_status.contiguous().data_ptr<bool>(),
+            (glm::vec3*)colors.data_ptr<float>(),
+            clamped.data_ptr<bool>()
+        );
+    }
+    
+    return std::make_tuple(colors, clamped);
+}
+
+std::tuple<torch::Tensor, torch::Tensor> 
+computeSHBackward(
+    const torch::Tensor& shs,
+    const int degree,
+    const torch::Tensor& view_dirs,
+    const torch::Tensor& visibility_status,
+    const torch::Tensor& clamped,
+    const torch::Tensor& dL_dcolors
+){
+    CHECK_INPUT(shs);
+    CHECK_INPUT(view_dirs);
+    CHECK_INPUT(visibility_status);
+    CHECK_INPUT(dL_dcolors);
+
+    const int P = shs.size(0);
+    const int S = shs.size(1);
+    auto float_opts = shs.options().dtype(torch::kFloat32);
+    torch::Tensor dL_dshs = torch::zeros({P, S, 3}, float_opts);
+    torch::Tensor dL_dvdirs = torch::zeros({P, 3}, float_opts);
+
+    if(P != 0)
+    {
+        computeSHBackwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
+            P,
+            (const glm::vec3*)shs.contiguous().data_ptr<float>(), 
+            degree,
+            (const glm::vec3*)view_dirs.contiguous().data_ptr<float>(), 
+            visibility_status.contiguous().data_ptr<bool>(),
+            clamped.contiguous().data_ptr<bool>(),
+            (glm::vec3*)dL_dcolors.contiguous().data_ptr<float>(),
+            (glm::vec3*)dL_dshs.data_ptr<float>(),
+            (glm::vec3*)dL_dvdirs.data_ptr<float>()
+        );
+    }
+    
+    return std::make_tuple(dL_dshs, dL_dvdirs);
 }

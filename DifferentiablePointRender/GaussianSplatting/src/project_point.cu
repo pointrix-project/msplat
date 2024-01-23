@@ -13,7 +13,7 @@
 #include <glm/glm.hpp>
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
-#include <project_point_kernel.h>
+#include <torch/torch.h>
 
 namespace cg = cooperative_groups;
 
@@ -113,57 +113,85 @@ __global__ void projectPointBackwardCUDAKernel(
     dL_dxyz[idx] = dL_dxyz_idx;
 }
 
-void projectPointForwardCUDA(
-    const int P, 
-    const float* xyz, 
-    const float* viewmatrix,
-    const float* projmatrix,
-    const float* camparam,
+
+std::tuple<torch::Tensor, torch::Tensor> 
+projectPointsForward(
+    const torch::Tensor& xyz,
+    const torch::Tensor& viewmat,
+    const torch::Tensor& projmat,
+    const torch::Tensor& camparam,
     const int W, const int H,
-    float2* uv,
-    float* depths,
     const float nearest,
-    const float extent)
-{
-    projectPointForwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
-        P, 
-        xyz, 
-        viewmatrix, 
-        projmatrix,
-        camparam,
-        W, H,
-        uv,
-        depths,
-        nearest,
-        extent
-    );
+    const float extent
+){
+    CHECK_INPUT(xyz);
+    CHECK_INPUT(viewmat);
+    CHECK_INPUT(projmat);
+    CHECK_INPUT(camparam);
+
+    const int P = xyz.size(0);
+    auto float_opts = xyz.options().dtype(torch::kFloat32);
+    torch::Tensor uv = torch::zeros({P, 2}, float_opts);
+    torch::Tensor depth = torch::zeros({P, 1}, float_opts);
+
+    if(P != 0)
+    {
+        projectPointForwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
+            P, 
+            xyz.contiguous().data_ptr<float>(), 
+            viewmat.contiguous().data_ptr<float>(), 
+            projmat.contiguous().data_ptr<float>(),
+            camparam.contiguous().data_ptr<float>(),
+            W, H,
+            (float2*)uv.data_ptr<float>(),
+            depth.data_ptr<float>(),
+            nearest,
+            extent
+        );
+    }
+
+    return std::make_tuple(uv, depth);
 }
 
 
-void projectPointBackwardCUDA(
-    const int P, 
-    const float* xyz, 
-    const float* viewmat,
-    const float* projmat,
-    const float* camparam,
+torch::Tensor 
+projectPointsBackward(
+    const torch::Tensor& xyz,
+    const torch::Tensor& viewmat,
+    const torch::Tensor& projmat,
+    const torch::Tensor& camparam,
     const int W, const int H,
-    const float2* uv,
-    const float* depth,
-    const float2* dL_duv,
-    const float* dL_ddepth,
-    float* dL_dxyz)
-{
-    projectPointBackwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
-        P, 
-        xyz, 
-        viewmat, 
-        projmat,
-        camparam,
-        W, H,
-        uv,
-        depth,
-        dL_duv,
-        dL_ddepth,
-        (glm::vec3*)dL_dxyz
-    );
+    const torch::Tensor& uv,
+    const torch::Tensor& depth,
+    const torch::Tensor& dL_duv,
+    const torch::Tensor& dL_ddepth 
+){
+    CHECK_INPUT(xyz);
+    CHECK_INPUT(viewmat);
+    CHECK_INPUT(projmat);
+    CHECK_INPUT(camparam);
+
+    const int P = xyz.size(0);
+    auto float_opts = xyz.options().dtype(torch::kFloat32);
+    torch::Tensor dL_dxyz = torch::zeros({P, 3}, float_opts);
+
+    if(P != 0)
+    {
+        projectPointBackwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
+            P, 
+            xyz.contiguous().data_ptr<float>(), 
+            viewmat.contiguous().data_ptr<float>(), 
+            projmat.contiguous().data_ptr<float>(),
+            camparam.contiguous().data_ptr<float>(),
+            W, H,
+            (float2*)uv.contiguous().data_ptr<float>(),
+            depth.contiguous().data_ptr<float>(),
+            (float2*)dL_duv.contiguous().data_ptr<float>(),
+            dL_ddepth.contiguous().data_ptr<float>(),
+            (glm::vec3*)dL_dxyz.data_ptr<float>()
+        );
+        
+    }
+
+    return dL_dxyz;
 }

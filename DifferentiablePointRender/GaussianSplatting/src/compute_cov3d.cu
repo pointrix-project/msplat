@@ -9,10 +9,11 @@
  * 
  */
 
+#include <utils.h>
 #include <glm/glm.hpp>
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
-#include <compute_cov3d_kernel.h>
+#include <torch/torch.h>
 
 namespace cg = cooperative_groups;
 
@@ -215,39 +216,66 @@ __global__ void computeCov3DBackwardCUDAKernel(
 }
 
 
-void computeCov3DForwardCUDA(
-    const int P, 
-    const float* scales, 
-    const float* uquats, 
-    const bool* visibility_status,
-    float* cov3Ds)
-{
-    computeCov3DForwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
-        P, 
-        (glm::vec3*)scales, 
-        (glm::vec4*)uquats, 
-        visibility_status,
-        cov3Ds
-    );
+torch::Tensor
+computeCov3DForward(
+  const torch::Tensor& scales,
+  const torch::Tensor& uquats,
+  const torch::Tensor& visibility_status
+){
+
+    CHECK_INPUT(scales);
+    CHECK_INPUT(uquats);
+    CHECK_INPUT(visibility_status);
+
+    const int P = scales.size(0);
+    auto float_opts = scales.options().dtype(torch::kFloat32);
+    torch::Tensor cov3Ds = torch::zeros({P, 6}, float_opts);
+    if(P != 0)
+    {
+        computeCov3DForwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
+            P, 
+            (glm::vec3*)scales.contiguous().data_ptr<float>(), 
+            (glm::vec4*)uquats.contiguous().data_ptr<float>(), 
+            visibility_status.contiguous().data_ptr<bool>(),
+            cov3Ds.data_ptr<float>()
+        );
+    }
+
+    return cov3Ds;
 }
 
 
-void computeCov3DBackwardCUDA(
-    const int P, 
-    const float* scales,
-    const float* uquats,
-    const bool* visibility_status,
-    const float* dL_dcov3Ds,
-    float* dL_dscales,
-    float* dL_duquats)
-{
-    computeCov3DBackwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
-        P, 
-        (glm::vec3*)scales, 
-        (glm::vec4*)uquats, 
-        visibility_status,
-        dL_dcov3Ds, 
-        (glm::vec3*)dL_dscales, 
-        (glm::vec4*)dL_duquats
-    );
+
+std::tuple<torch::Tensor, torch::Tensor>
+computeCov3DBackward(
+    const torch::Tensor& scales,
+	const torch::Tensor& uquats,
+	const torch::Tensor& visibility_status,
+	const torch::Tensor& dL_dcov3Ds
+){
+
+    CHECK_INPUT(scales);
+    CHECK_INPUT(uquats);
+    CHECK_INPUT(visibility_status);
+    CHECK_INPUT(dL_dcov3Ds);
+
+    const int P = scales.size(0);
+    auto float_opts = scales.options().dtype(torch::kFloat32);
+    torch::Tensor dL_dscales = torch::zeros({P, 3}, float_opts);
+    torch::Tensor dL_duquats = torch::zeros({P, 4}, float_opts);
+    
+    if(P != 0)
+    {
+        computeCov3DBackwardCUDAKernel <<<(P + 255) / 256, 256 >>> (
+            P, 
+            (glm::vec3*)scales.contiguous().data_ptr<float>(), 
+            (glm::vec4*)uquats.contiguous().data_ptr<float>(), 
+            visibility_status.contiguous().data_ptr<bool>(),
+            dL_dcov3Ds.contiguous().data_ptr<float>(), 
+            (glm::vec3*)dL_dscales.data_ptr<float>(), 
+            (glm::vec4*)dL_duquats.data_ptr<float>()
+        );
+    }
+
+    return std::make_tuple(dL_dscales, dL_duquats);
 }

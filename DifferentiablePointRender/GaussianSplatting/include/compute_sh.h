@@ -1,7 +1,4 @@
-
-
-#ifndef CUDA_COMPUTE_SH_H_INCLUDED
-#define CUDA_COMPUTE_SH_H_INCLUDED
+#pragma once
 
 #include <torch/extension.h>
 
@@ -22,5 +19,3 @@ computeSHBackward(
     const torch::Tensor& clamped,
     const torch::Tensor& dL_dcolors
 );
-
-#endif
