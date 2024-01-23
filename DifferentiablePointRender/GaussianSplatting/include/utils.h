@@ -1,6 +1,5 @@
 
-#ifndef CUDA_UTILS_H_INCLUDED
-#define CUDA_UTILS_H_INCLUDED
+#pragma once
 
 // Check the input, magic lines.
 #define CHECK_CUDA(x) TORCH_CHECK(x.is_cuda(), #x " must be a CUDA tensor")
@@ -34,5 +33,3 @@ __forceinline__ __device__ float4 transform_point_4x4(const float* matrix, const
 
 	return transformed;
 }
-
-#endif

@@ -9,8 +9,7 @@
  * 
  */
 
-#ifndef CUDA_PROJECT_POINTS_H_INCLUDED
-#define CUDA_PROJECT_POINTS_H_INCLUDED
+#pragma once
 
 #include <torch/extension.h>
 
@@ -38,5 +37,3 @@ projectPointsBackward(
     const torch::Tensor& dL_duv,
     const torch::Tensor& dL_ddepth 
 );
-
-# endif

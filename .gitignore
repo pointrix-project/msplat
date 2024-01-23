@@ -6,3 +6,4 @@ build
 DifferentiablePointRender.egg-info
 test/gaussian-splatting/data
 test/gaussian-splatting/output
+*.so
