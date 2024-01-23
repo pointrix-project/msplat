@@ -81,8 +81,7 @@ class _EWAProject(torch.autograd.Function):
     @staticmethod
     def backward(
         ctx,
-        dL_dcov2d,
-        dL_dopacity
+        dL_dcov2d
     ):
         
         # W = ctx.W
