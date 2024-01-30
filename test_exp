@@ -1,0 +1,3 @@
+0.3 + fx*v0*(cov3d_0*fx*v0/d + cov3d_1*fx*v1/d + cov3d_2*fx*v2/d)/d + fx*v1*(cov3d_1*fx*v0/d + cov3d_3*fx*v1/d + cov3d_4*fx*v2/d)/d + fx*v2*(cov3d_2*fx*v0/d + cov3d_4*fx*v1/d + cov3d_5*fx*v2/d)/d
+fy*v4*(cov3d_0*fx*v0/d + cov3d_1*fx*v1/d + cov3d_2*fx*v2/d)/d + fy*v5*(cov3d_1*fx*v0/d + cov3d_3*fx*v1/d + cov3d_4*fx*v2/d)/d + fy*v6*(cov3d_2*fx*v0/d + cov3d_4*fx*v1/d + cov3d_5*fx*v2/d)/d
+0.3 + fy*v4*(cov3d_0*fy*v4/d + cov3d_1*fy*v5/d + cov3d_2*fy*v6/d)/d + fy*v5*(cov3d_1*fy*v4/d + cov3d_3*fy*v5/d + cov3d_4*fy*v6/d)/d + fy*v6*(cov3d_2*fy*v4/d + cov3d_4*fy*v5/d + cov3d_5*fy*v6/d)/d

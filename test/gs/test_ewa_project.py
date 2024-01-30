@@ -7,19 +7,16 @@ import DifferentiablePointRender.GaussianSplatting as gs
 BLOCK_X = 16
 BLOCK_Y = 16
 
-def ewa_splatting_torch_impl(
-    xyz, 
+def ewa_project_torch_impl(
     cov3d, 
     viewmat,
     camparam,
     uv,
     depth,
     xy,
-    W, H,
-    visibility_status=None
+    W, H
 ):    
     # return cov2d, radii, tiles_touched
-    assert xyz.shape[-1] == 3
     assert viewmat.shape[-2:] == (4, 4), viewmat.shape
     
     viewmat = viewmat.transpose(-2, -1)
@@ -27,10 +24,11 @@ def ewa_splatting_torch_impl(
     Wmat = viewmat[..., :3, :3]  # (..., 3, 3)
     p = viewmat[..., :3, 3]  # (..., 3)
     
+    # take care of grad
     t = torch.cat([uv[..., 0:1] * depth[..., 0:1], 
                    uv[..., 1:2] * depth[..., 0:1], 
                    depth[..., 0:1]], dim=-1)
-
+    
     rz = 1.0 / t[..., 2]  # (...,)
     rz2 = rz**2  # (...,)
     
@@ -59,6 +57,7 @@ def ewa_splatting_torch_impl(
     det = cov2d[..., 0, 0] * cov2d[..., 1, 1] - cov2d[..., 0, 1] ** 2
     det_mask = det == 0
     det = torch.clamp(det, min=1e-8)
+        
     conic = torch.stack(
         [
             cov2d[..., 1, 1] / det,
@@ -67,6 +66,7 @@ def ewa_splatting_torch_impl(
         ],
         dim=-1,
     )  # (..., 3)
+    
     b = (cov2d[..., 0, 0] + cov2d[..., 1, 1]) / 2  # (...,)
     v1 = b + torch.sqrt(torch.clamp(b**2 - det, min=0.1))  # (...,)
     v2 = b - torch.sqrt(torch.clamp(b**2 - det, min=0.1))  # (...,)
@@ -76,7 +76,7 @@ def ewa_splatting_torch_impl(
     top_left = ((xy - radius[..., None])/BLOCK_X).to(torch.int32)
     bottom_right = ((xy + radius[..., None] + BLOCK_Y - 1)/BLOCK_Y).to(torch.int32)
     
-    tile_bounds = torch.zeros(2, dtype=torch.int, device=xyz.device)
+    tile_bounds = torch.zeros(2, dtype=torch.int, device=uv.device)
     tile_bounds[0] = (W + BLOCK_X - 1) / BLOCK_X
     tile_bounds[1] = (H + BLOCK_Y - 1) / BLOCK_Y
     
@@ -98,13 +98,11 @@ def ewa_splatting_torch_impl(
     tiles_tmp = tile_max - tile_min
     tiles_touched = tiles_tmp[..., 0] * tiles_tmp[..., 1]
     
-    mask = torch.logical_or(tiles_touched == 0, det_mask)
-    if visibility_status is not None:
-        mask = torch.logical_or(mask, ~visibility_status)
+    # mask = torch.logical_or(tiles_touched == 0, det_mask)
     
-    conic[mask] = 0
-    radius[mask] = 0
-    tiles_touched[mask] = 0
+    # conic = conic * mask.float()[..., None]
+    # radius = radius * mask.float()
+    # tiles_touched = tiles_touched * mask.float()
     
     return conic, radius.int(), tiles_touched.int()
 
@@ -144,7 +142,7 @@ if __name__ == "__main__":
     torch.set_printoptions(precision=10)
     
     iters = 100
-    N = 20000
+    N = 2
     
     print("=============================== running test on ewa_project ===============================")
     
@@ -166,31 +164,37 @@ if __name__ == "__main__":
     
     camparam = torch.Tensor([fx, fy, H/2, W/2]).cuda()
     xyz = torch.randn((N, 3)).cuda() * 2.6 - 1.3
-    xyz = xyz
     
     rand_scale = torch.randn(N, 3, device="cuda", dtype=torch.float)
     rand_quats = torch.randn(N, 4, device="cuda", dtype=torch.float)
     rand_uquats = rand_quats / torch.norm(rand_quats, 2, dim=-1, keepdim=True)
     
-    with torch.no_grad():
-        cov3d = gs.compute_cov3d(rand_scale, rand_uquats)
-        
-        # project points
-        (
-            uv,
-            depth 
-        ) = gs.project_point(
-            xyz, 
-            viewmat, 
-            full_proj_transform,
-            camparam,
-            W, H)
+    cov3d = gs.compute_cov3d(rand_scale, rand_uquats)
     
+    # project points
+    (
+        uv,
+        depth 
+    ) = gs.project_point(
+        xyz, 
+        viewmat, 
+        full_proj_transform,
+        camparam,
+        W, H)
+
     visibility_status = (depth != 0).squeeze(-1)
     
     xy = uv.clone()
     xy[:, 0] = ndc_to_pixel(uv[:, 0], W)
     xy[:, 1] = ndc_to_pixel(uv[:, 1], H)
+    
+    # mask out, otherwise there will be nan in the grad of torch_impl. 
+    cov3d1 = cov3d.clone()[visibility_status].requires_grad_()
+    cov3d2 = cov3d.clone()[visibility_status].requires_grad_()
+    uv = uv[visibility_status]
+    depth1 = depth.clone()[visibility_status].requires_grad_()
+    depth2 = depth.clone()[visibility_status].requires_grad_()
+    xy = xy[visibility_status]
     
     # ============================================ Forward =====================================
     print("forward: ")
@@ -201,16 +205,14 @@ if __name__ == "__main__":
             out_conic_pytorch, 
             out_radius_pytorch, 
             out_tiles_touched_pytorch
-        ) = ewa_splatting_torch_impl(
-            xyz, 
-            cov3d, 
+        ) = ewa_project_torch_impl(
+            cov3d1, 
             viewmat,
             camparam,
             uv,
-            depth,
+            depth1,
             xy,
-            W, H,
-            visibility_status
+            W, H
         )
     torch.cuda.synchronize()
     print("  pytorch runtime: ", (time.time() - t) / iters, " s")
@@ -222,18 +224,20 @@ if __name__ == "__main__":
             out_radius_cuda, 
             out_tiles_touched_cuda
         ) = gs.ewa_project(
-            xyz, 
-            cov3d, 
+            cov3d2, 
             viewmat,
             camparam,
             uv,
-            depth,
+            depth2,
             xy,
-            W, H,
-            visibility_status
+            W, H
         )
     
     torch.cuda.synchronize()
+    print("  cuda runtime: ", (time.time() - t) / iters, " s")
+    
+    # print(out_radius_pytorch)
+    # print(out_radius_cuda)
     
     torch.testing.assert_close(out_conic_pytorch, out_conic_cuda, rtol=1e-3, atol=1e-3)
     torch.testing.assert_close(out_radius_pytorch, out_radius_cuda)
@@ -241,18 +245,23 @@ if __name__ == "__main__":
     print("Forward pass.")
     
     # ============================================ Backward =====================================
-    # print("backward: ")
-    # t = time.time()
-    # loss = out_pytorch_uv.sum()
-    # loss.backward()
-    # torch.cuda.synchronize()
-    # print("  pytorch runtime: ", (time.time() - t) / iters, " s")
+    print("backward: ")
+    t = time.time()
+    loss = out_conic_pytorch.sum()
+    loss.backward()
+    torch.cuda.synchronize()
+    print("  pytorch runtime: ", (time.time() - t) / iters, " s")
 
-    # t = time.time()
-    # loss2 = out_cuda_uv.sum()
-    # loss2.backward()
-    # torch.cuda.synchronize()
-    # print("  cuda runtime: ", (time.time() - t) / iters, " s")
+    t = time.time()
+    loss2 = out_conic_cuda.sum()
+    loss2.backward()
+    torch.cuda.synchronize()
+    print("  cuda runtime: ", (time.time() - t) / iters, " s")
     
-    # torch.testing.assert_close(xyz1.grad, xyz2.grad)
-    # print("Backward pass.")
+    print(depth1.grad)
+    print(depth2.grad)
+    
+    torch.testing.assert_close(cov3d1.grad, cov3d2.grad)
+    torch.testing.assert_close(depth1.grad, depth2.grad)
+    print("Backward pass.")
+    
