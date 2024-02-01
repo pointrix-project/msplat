@@ -10,7 +10,6 @@
  */
 
 #include <utils.h>
-#include <glm/glm.hpp>
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 #include <torch/torch.h>
@@ -61,8 +60,8 @@ __global__ void projectPointForwardCUDAKernel(
     bool extent_culling = p_proj.x < -extent || p_proj.x > extent || p_proj.y < -extent || p_proj.y > extent;
     if (near_culling || extent_culling)
         return ;
-
-    uv[idx] = { p_proj.x, p_proj.y};
+    
+    uv[idx] = {ndc_to_pixel(p_proj.x, W, camparam[2]), ndc_to_pixel(p_proj.y, H, camparam[3])};
     depths[idx] = p_view.z;
 }
 
@@ -78,7 +77,7 @@ __global__ void projectPointBackwardCUDAKernel(
     const float* depth,
     const float2* dL_duv,
     const float* dL_ddepth,
-    glm::vec3* dL_dxyz)
+    float3* dL_dxyz)
 {
     auto idx = cg::this_grid().thread_rank();
 
@@ -86,29 +85,33 @@ __global__ void projectPointBackwardCUDAKernel(
     if (idx >= P || depth[idx] == 0)
         return;
 
-    float3 pt = { xyz[3 * idx], xyz[3 * idx + 1], xyz[3 * idx + 2]};
-
-    glm::vec3 dL_dxyz_idx;
+    float3 dL_dxyz_idx;
     dL_dxyz_idx.x = dL_ddepth[idx] * viewmat[2];
     dL_dxyz_idx.y = dL_ddepth[idx] * viewmat[6];
     dL_dxyz_idx.z = dL_ddepth[idx] * viewmat[10];
 
     // dpw_dx
+    float3 pt = { xyz[3 * idx], xyz[3 * idx + 1], xyz[3 * idx + 2]};
     float4 p_hom = transform_point_4x4(projmat, pt);
     float pw = 1.0f / (p_hom.w + 1e-7);
 
-    glm::vec3 dpw_dxyz;
+    float2 dL_dndc = {
+        0.5 * W * dL_duv[idx].x,
+        0.5 * H * dL_duv[idx].y
+    };
+
+    float3 dpw_dxyz;
     dpw_dxyz.x = - pw * pw * projmat[3];
     dpw_dxyz.y = - pw * pw * projmat[7];
     dpw_dxyz.z = - pw * pw * projmat[11];
 
-    dL_dxyz_idx.x += dL_duv[idx].x * (projmat[0] * pw + p_hom.x * dpw_dxyz.x);
-    dL_dxyz_idx.y += dL_duv[idx].x * (projmat[4] * pw + p_hom.x * dpw_dxyz.y);
-    dL_dxyz_idx.z += dL_duv[idx].x * (projmat[8] * pw + p_hom.x * dpw_dxyz.z);
+    dL_dxyz_idx.x += dL_dndc.x * (projmat[0] * pw + p_hom.x * dpw_dxyz.x);
+    dL_dxyz_idx.y += dL_dndc.x * (projmat[4] * pw + p_hom.x * dpw_dxyz.y);
+    dL_dxyz_idx.z += dL_dndc.x * (projmat[8] * pw + p_hom.x * dpw_dxyz.z);
 
-    dL_dxyz_idx.x += dL_duv[idx].y * (projmat[1] * pw + p_hom.y * dpw_dxyz.x);
-    dL_dxyz_idx.y += dL_duv[idx].y * (projmat[5] * pw + p_hom.y * dpw_dxyz.y);
-    dL_dxyz_idx.z += dL_duv[idx].y * (projmat[9] * pw + p_hom.y * dpw_dxyz.z);
+    dL_dxyz_idx.x += dL_dndc.y * (projmat[1] * pw + p_hom.y * dpw_dxyz.x);
+    dL_dxyz_idx.y += dL_dndc.y * (projmat[5] * pw + p_hom.y * dpw_dxyz.y);
+    dL_dxyz_idx.z += dL_dndc.y * (projmat[9] * pw + p_hom.y * dpw_dxyz.z);
 
     dL_dxyz[idx] = dL_dxyz_idx;
 }
@@ -188,7 +191,7 @@ projectPointsBackward(
             depth.contiguous().data_ptr<float>(),
             (float2*)dL_duv.contiguous().data_ptr<float>(),
             dL_ddepth.contiguous().data_ptr<float>(),
-            (glm::vec3*)dL_dxyz.data_ptr<float>()
+            (float3*)dL_dxyz.data_ptr<float>()
         );
         
     }

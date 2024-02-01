@@ -117,7 +117,7 @@ __global__ void EWAProjectForwardCUDAKernel(
 
     uint2 rect_min, rect_max;
     float2 mean2D = { xy[2 * idx], xy[2 * idx + 1] };
-    getRect(mean2D, my_radius, rect_min, rect_max, grid);
+    get_rect(mean2D, my_radius, rect_min, rect_max, grid);
 
     if ((rect_max.x - rect_min.x) * (rect_max.y - rect_min.y) == 0)
         return;

@@ -12,9 +12,9 @@
 #include <thrust/extrema.h>
 
 
-__forceinline__ __device__ float ndc_to_pixel(float ndc, int size)
+__forceinline__ __device__ float ndc_to_pixel(float ndc, int size, float pp)
 {
-    return ((ndc + 1.0) * size - 1.0) * 0.5;
+    return 0.5f * size * ndc + pp - 0.5f;
 }
 
 __forceinline__ __device__ float3 transform_point_4x3(const float* matrix, const float3& p)
@@ -40,7 +40,7 @@ __forceinline__ __device__ float4 transform_point_4x4(const float* matrix, const
 }
 
 
-__forceinline__ __device__ void getRect(const float2 p, int max_radius, uint2& rect_min, uint2& rect_max, dim3 grid)
+__forceinline__ __device__ void get_rect(const float2 p, int max_radius, uint2& rect_min, uint2& rect_max, dim3 grid)
 {
     rect_min.x = thrust::min<int>(grid.x, thrust::max<int>(0, static_cast<int>((p.x - max_radius) / BLOCK_X)));
     rect_min.y = thrust::min<int>(grid.y, thrust::max<int>(0, static_cast<int>((p.y - max_radius) / BLOCK_Y)));

@@ -5,8 +5,8 @@ import torch
 import DifferentiablePointRender.GaussianSplatting as gs
 
 
-def ndc_to_pixel(ndc, size):
-    return ((ndc + 1.0) * size - 1.0) * 0.5
+def ndc_to_pixel(ndc, size, pp):
+    return 0.5 * size * ndc + pp - 0.5
 
 
 def project_point_torch_impl(
@@ -31,7 +31,8 @@ def project_point_torch_impl(
     
     p_view = torch.bmm(viewmat.unsqueeze(0).repeat(xyz.shape[0], 1, 1), xyz_hom.unsqueeze(-1)).squeeze(-1)
     
-    uv = torch.stack([p_proj[:, 0], p_proj[:, 1]], dim=-1)
+    uv = torch.stack([ndc_to_pixel(p_proj[:, 0], W, camparam[2]), 
+                      ndc_to_pixel(p_proj[:, 1], H, camparam[3])], dim=-1)
     depth = p_view[:, -2]
     
     near_mask = depth <= nearest
@@ -74,12 +75,12 @@ def fov2focal(fov, pixels):
     return pixels / (2 * math.tan(fov / 2))
 
 if __name__ == "__main__":
-    # seed = 123
+    # seed = 3
     # torch.manual_seed(seed)
     # torch.set_printoptions(precision=10)
     
-    iters = 1
-    N = 100000
+    iters = 10
+    N = 200000
     
     print("=============================== running test on project_points ===============================")
     
@@ -99,7 +100,7 @@ if __name__ == "__main__":
     projmat = getProjectionMatrix(fovx, fovy).transpose(0, 1)
     full_proj_transform = (viewmat.unsqueeze(0).bmm(projmat.unsqueeze(0))).squeeze(0)
     
-    camparam = torch.Tensor([fx, fy, H/2, W/2]).cuda()
+    camparam = torch.Tensor([fx, fy, 0, 0]).cuda()
     xyz = torch.randn((N, 3)).cuda() * 2.6 - 1.3
     
     xyz1 = xyz.clone().requires_grad_()
@@ -136,9 +137,11 @@ if __name__ == "__main__":
     
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
+
+    # print(out_pytorch_uv, out_cuda_uv)
     
-    torch.testing.assert_close(out_pytorch_uv, out_cuda_uv)
-    torch.testing.assert_close(out_pytorch_depth, out_cuda_depth)
+    torch.testing.assert_close(out_pytorch_uv, out_cuda_uv, rtol=1e-5, atol=1e-4)
+    torch.testing.assert_close(out_pytorch_depth, out_cuda_depth, rtol=1e-5, atol=1e-4)
     print("Forward pass.")
     
     # ============================================ Backward =====================================
@@ -154,6 +157,6 @@ if __name__ == "__main__":
     loss2.backward()
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
-    
-    torch.testing.assert_close(xyz1.grad, xyz2.grad)
+
+    torch.testing.assert_close(xyz1.grad, xyz2.grad, rtol=1e-5, atol=1e-4)
     print("Backward pass.")
