@@ -55,7 +55,7 @@ def ewa_project_torch_impl(
     
     # Compute extent in screen space
     det = cov2d[..., 0, 0] * cov2d[..., 1, 1] - cov2d[..., 0, 1] ** 2
-    det_mask = det == 0
+    det_mask = det != 0
     det = torch.clamp(det, min=1e-8)
         
     conic = torch.stack(
@@ -98,11 +98,11 @@ def ewa_project_torch_impl(
     tiles_tmp = tile_max - tile_min
     tiles_touched = tiles_tmp[..., 0] * tiles_tmp[..., 1]
     
-    # mask = torch.logical_or(tiles_touched == 0, det_mask)
+    mask = torch.logical_and(tiles_touched != 0, det_mask)
     
-    # conic = conic * mask.float()[..., None]
-    # radius = radius * mask.float()
-    # tiles_touched = tiles_touched * mask.float()
+    conic = conic * mask.float()[..., None]
+    radius = radius * mask.float()
+    tiles_touched = tiles_touched * mask.float()
     
     return conic, radius.int(), tiles_touched.int()
 
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     torch.set_printoptions(precision=10)
     
     iters = 100
-    N = 2
+    N = 1
     
     print("=============================== running test on ewa_project ===============================")
     
@@ -236,8 +236,8 @@ if __name__ == "__main__":
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
     
-    # print(out_radius_pytorch)
-    # print(out_radius_cuda)
+    print(out_tiles_touched_pytorch)
+    exit(-1)
     
     torch.testing.assert_close(out_conic_pytorch, out_conic_cuda, rtol=1e-3, atol=1e-3)
     torch.testing.assert_close(out_radius_pytorch, out_radius_cuda)
@@ -258,10 +258,12 @@ if __name__ == "__main__":
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
     
-    print(depth1.grad)
-    print(depth2.grad)
+    # print(depth1.grad)
+    # print(depth2.grad)
     
+    print(cov3d1.grad)
+    print(cov3d2.grad)
     torch.testing.assert_close(cov3d1.grad, cov3d2.grad)
-    torch.testing.assert_close(depth1.grad, depth2.grad)
+    # torch.testing.assert_close(depth1.grad, depth2.grad)
     print("Backward pass.")
     

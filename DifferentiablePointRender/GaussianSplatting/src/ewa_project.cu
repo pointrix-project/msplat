@@ -7,6 +7,28 @@
 
 namespace cg = cooperative_groups;
 
+__device__ inline void PrintMatrix(const glm::vec3 vec)
+{
+    float* data = (float*)glm::value_ptr(vec);
+    printf("[%f %f %f]\n", data[0], data[1], data[2]);
+}
+
+__device__ inline void PrintMatrix(const glm::mat3 mat)
+{   // Column Major
+    float* data = (float*)glm::value_ptr(mat);
+    printf("[");
+    for(int i = 0; i < 3; i++){
+        printf("[");
+        for(int j = 0; j < 3; j++){
+            printf("%f ", data[j * 3 + i]);
+        }
+        printf("]");
+        if(i < 2)
+            printf("\n");
+    }
+    printf("]\n");
+}
+
 
 __global__ void EWAProjectForwardCUDAKernel(
     int P,
@@ -30,20 +52,37 @@ __global__ void EWAProjectForwardCUDAKernel(
     float focal_x = camparam[0];
     float focal_y = camparam[1];
 
-    // EWA project
     float3 t = {uv[2*idx], uv[2*idx+1], depth[idx]};
-    t.x = t.x * t.z;
-    t.y = t.y * t.z;
+
+	const float limx = 1.3f * 0.5 * W / focal_x;
+	const float limy = 1.3f * 0.5 * H / focal_y;
+	const float txtz = t.x / t.z;
+	const float tytz = t.y / t.z;
+	t.x = min(limx, max(-limx, txtz)) * t.z;
+	t.y = min(limy, max(-limy, tytz)) * t.z;
+
+    // EWA project
+    // float3 t = {uv[2*idx], uv[2*idx+1], depth[idx]};
+    // t.x = t.x * t.z;
+    // t.y = t.y * t.z;
 
     glm::mat3 Jmat = glm::mat3(
         focal_x / t.z, 0.0f, -(focal_x * t.x) / (t.z * t.z),
         0.0f, focal_y / t.z, -(focal_y * t.y) / (t.z * t.z),
         0, 0, 0);
+    
+    printf("MY J1: %f, %f, %f\n", Jmat[0][0], Jmat[0][1], Jmat[0][2]);
+    printf("MY J2: %f, %f, %f\n", Jmat[1][0], Jmat[1][1], Jmat[1][2]);
+    printf("MY J3: %f, %f, %f\n", Jmat[2][0], Jmat[2][1], Jmat[2][2]);
 
     glm::mat3 Wmat = glm::mat3(
         viewmat[0], viewmat[4], viewmat[8],
         viewmat[1], viewmat[5], viewmat[9],
         viewmat[2], viewmat[6], viewmat[10]);
+
+    printf("MY W1: %f, %f, %f\n", Wmat[0][0], Wmat[0][1], Wmat[0][2]);
+    printf("MY W2: %f, %f, %f\n", Wmat[1][0], Wmat[1][1], Wmat[1][2]);
+    printf("MY W3: %f, %f, %f\n", Wmat[2][0], Wmat[2][1], Wmat[2][2]);
 
     glm::mat3 Tmat = Wmat * Jmat;
     glm::mat3 Vrk = glm::mat3(
@@ -54,6 +93,8 @@ __global__ void EWAProjectForwardCUDAKernel(
     glm::mat3 ewa_cov = glm::transpose(Tmat) * glm::transpose(Vrk) * Tmat;
 
     float3 cov = { float(ewa_cov[0][0]) + 0.3f, float(ewa_cov[0][1]), float(ewa_cov[1][1]) + 0.3f};
+
+    printf("MY cov: %f, %f, %f\n", cov.x, cov.y, cov.z);
     
     // Invert covariance (EWA algorithm)
     float det = (cov.x * cov.z - cov.y * cov.y);
@@ -95,7 +136,7 @@ __global__ void EWAProjectBackCUDAKernel(
     const float* xy,
     const int W, const int H,
     const bool* visibility_status,
-    const float* dL_dcov2d,
+    const float* dL_dconics,
     float* dL_dcov3d,
     float* dL_dd
 ){
@@ -103,87 +144,99 @@ __global__ void EWAProjectBackCUDAKernel(
     if (idx >= P || !visibility_status[idx])
         return;
 
-    // dL_dcov2d [N, 3]
-    // dL_dcov3d [N, 6]
-    float fx = camparam[0];
-    float fy = camparam[1];
+    const float* cov3D = cov3d + 6 * idx;
 
-    // dL_dcov3d = dL_dcov2d * dcov2d_dcov3d
-    float dcov2d_0_dcov3d_0 = fx * fx * viewmat[0] * viewmat[0] / (depth[idx] * depth[idx]); // fx**2*v0**2/d**2
-    float dcov2d_0_dcov3d_1 = 2 * fx * fx * viewmat[0] * viewmat[1] / (depth[idx] * depth[idx]); // 2*fx**2*v0*v1/d**2
-    float dcov2d_0_dcov3d_2 = 2 * fx * fx * viewmat[0] * viewmat[2] / (depth[idx] * depth[idx]); //2*fx**2*v0*v2/d**2
-    float dcov2d_0_dcov3d_3 = fx * fx * viewmat[1] * viewmat[1] / (depth[idx] * depth[idx]); // fx**2*v1**2/d**2
-    float dcov2d_0_dcov3d_4 = 2 * fx * fx * viewmat[1] * viewmat[2] / (depth[idx] * depth[idx]); // 2*fx**2*v1*v2/d**2
-    float dcov2d_0_dcov3d_5 = fx * fx * viewmat[2] * viewmat[2] / (depth[idx] * depth[idx]); // fx**2*v2**2/d**2
+    float focal_x = camparam[0];
+    float focal_y = camparam[1];
 
-    float dcov2d_1_dcov3d_0 = fx * fy * viewmat[0] * viewmat[4] / (depth[idx] * depth[idx]); //fx*fy*v0*v4/d**2
-    float dcov2d_1_dcov3d_1 = fx * fy * viewmat[0] * viewmat[5] / (depth[idx] * depth[idx]) 
-                            + fx * fy * viewmat[1] * viewmat[4] / (depth[idx] * depth[idx]);//fx*fy*v0*v5/d**2 + fx*fy*v1*v4/d**2
-    float dcov2d_1_dcov3d_2 = fx * fy * viewmat[0] * viewmat[6] / (depth[idx] * depth[idx]) 
-                            + fx * fy * viewmat[2] * viewmat[4] / (depth[idx] * depth[idx]);//fx*fy*v0*v6/d**2 + fx*fy*v2*v4/d**2
-    float dcov2d_1_dcov3d_3 = fx * fy * viewmat[1] * viewmat[5] / (depth[idx] * depth[idx]);//fx*fy*v1*v5/d**2
-    float dcov2d_1_dcov3d_4 = fx * fy * viewmat[1] * viewmat[6] / (depth[idx] * depth[idx])
-                            + fx * fy * viewmat[2] * viewmat[5] / (depth[idx] * depth[idx]);//fx*fy*v1*v6/d**2 + fx*fy*v2*v5/d**2
-    float dcov2d_1_dcov3d_5 = fx * fy * viewmat[2] * viewmat[6] / (depth[idx] * depth[idx]);//fx*fy*v2*v6/d**2
-    
-    float dcov2d_2_dcov3d_0 = fy * fy * viewmat[4] * viewmat[4] / (depth[idx] * depth[idx]);//fy**2*v4**2/d**2
-    float dcov2d_2_dcov3d_1 = 2 * fy * fy * viewmat[4] * viewmat[5] / (depth[idx] * depth[idx]);//2*fy**2*v4*v5/d**2
-    float dcov2d_2_dcov3d_2 = 2 * fy * fy * viewmat[4] * viewmat[6] / (depth[idx] * depth[idx]);//2*fy**2*v4*v6/d**2
-    float dcov2d_2_dcov3d_3 = fy * fy * viewmat[5] * viewmat[5] / (depth[idx] * depth[idx]);//fy**2*v5**2/d**2
-    float dcov2d_2_dcov3d_4 = 2 * fy * fy * viewmat[5] * viewmat[6] / (depth[idx] * depth[idx]);//2*fy**2*v5*v6/d**2
-    float dcov2d_2_dcov3d_5 = fy * fy * viewmat[6] * viewmat[6] / (depth[idx] * depth[idx]);//fy**2*v6**2/d**2
+    // Fetch gradients, recompute 2D covariance and relevant 
+    // intermediate forward results needed in the backward.
+    float3 dL_dconic = {dL_dconics[3*idx+0], dL_dconics[3*idx+1], dL_dconics[3*idx+2]};
+    float3 t = {
+        uv[2*idx+0] * depth[idx],
+        uv[2*idx+1] * depth[idx],
+        depth[idx]
+    };
 
-    dL_dcov3d[6 * idx + 0] = dL_dcov2d[3 * idx + 0] * dcov2d_0_dcov3d_0
-                           + dL_dcov2d[3 * idx + 1] * dcov2d_1_dcov3d_0
-                           + dL_dcov2d[3 * idx + 2] * dcov2d_2_dcov3d_0;
-    dL_dcov3d[6 * idx + 1] = dL_dcov2d[3 * idx + 0] * dcov2d_0_dcov3d_1
-                           + dL_dcov2d[3 * idx + 1] * dcov2d_1_dcov3d_1
-                           + dL_dcov2d[3 * idx + 2] * dcov2d_2_dcov3d_1;
-    dL_dcov3d[6 * idx + 2] = dL_dcov2d[3 * idx + 0] * dcov2d_0_dcov3d_2
-                           + dL_dcov2d[3 * idx + 1] * dcov2d_1_dcov3d_2
-                           + dL_dcov2d[3 * idx + 2] * dcov2d_2_dcov3d_2;
-    dL_dcov3d[6 * idx + 3] = dL_dcov2d[3 * idx + 0] * dcov2d_0_dcov3d_3
-                           + dL_dcov2d[3 * idx + 1] * dcov2d_1_dcov3d_3
-                           + dL_dcov2d[3 * idx + 2] * dcov2d_2_dcov3d_3;
-    dL_dcov3d[6 * idx + 4] = dL_dcov2d[3 * idx + 0] * dcov2d_0_dcov3d_4
-                           + dL_dcov2d[3 * idx + 1] * dcov2d_1_dcov3d_4
-                           + dL_dcov2d[3 * idx + 2] * dcov2d_2_dcov3d_4;
-    dL_dcov3d[6 * idx + 5] = dL_dcov2d[3 * idx + 0] * dcov2d_0_dcov3d_5
-                           + dL_dcov2d[3 * idx + 1] * dcov2d_1_dcov3d_5
-                           + dL_dcov2d[3 * idx + 2] * dcov2d_2_dcov3d_5;
-    
-    // dL_dd = dL_dcov2d * dcov2d_dd
-    
-    // ===============================Dcov2d/Dd===============================
-    // dcov2d_0_dd = -2*fx**2*(v0*(cov3d_0*v0 + cov3d_1*v1 + cov3d_2*v2) 
-    //             + v1*(cov3d_1*v0 + cov3d_3*v1 + cov3d_4*v2) 
-    //             + v2*(cov3d_2*v0 + cov3d_4*v1 + cov3d_5*v2))/d**3
-    // dcov2d_1_dd = -2*fx*fy*(v4*(cov3d_0*v0 + cov3d_1*v1 + cov3d_2*v2) 
-    //             + v5*(cov3d_1*v0 + cov3d_3*v1 + cov3d_4*v2) 
-    //             + v6*(cov3d_2*v0 + cov3d_4*v1 + cov3d_5*v2))/d**3
-    // dcov2d_2_dd = -2*fy**2*(v4*(cov3d_0*v4 + cov3d_1*v5 + cov3d_2*v6) 
-    //             + v5*(cov3d_1*v4 + cov3d_3*v5 + cov3d_4*v6) 
-    //             + v6*(cov3d_2*v4 + cov3d_4*v5 + cov3d_5*v6))/d**3
-    
-    float dcov2d_0_dd = -2*fx*fx*(
-                      viewmat[0]*(cov3d[0]*viewmat[0] + cov3d[1]*viewmat[1] + cov3d[2]*viewmat[2]) 
-                      + viewmat[1]*(cov3d[1]*viewmat[0] + cov3d[3]*viewmat[1] + cov3d[4]*viewmat[2]) 
-                      + viewmat[2]*(cov3d[2]*viewmat[0] + cov3d[4]*viewmat[1] + cov3d[5]*viewmat[2]))
-                      /(depth[idx] * depth[idx] * depth[idx]);
-    float dcov2d_1_dd = -2*fx*fy*(
-                      viewmat[4]*(cov3d[0]*viewmat[0] + cov3d[1]*viewmat[1] + cov3d[2]*viewmat[2]) 
-                      + viewmat[5]*(cov3d[1]*viewmat[0] + cov3d[3]*viewmat[1] + cov3d[4]*viewmat[2]) 
-                      + viewmat[6]*(cov3d[2]*viewmat[0] + cov3d[4]*viewmat[1] + cov3d[5]*viewmat[2]))
-                      /(depth[idx] * depth[idx] * depth[idx]);
-    float dcov2d_2_dd = -2*fy*fy*(
-                      viewmat[4]*(cov3d[0]*viewmat[4] + cov3d[1]*viewmat[5] + cov3d[2]*viewmat[6]) 
-                      + viewmat[5]*(cov3d[1]*viewmat[4] + cov3d[3]*viewmat[5] + cov3d[4]*viewmat[6]) 
-                      + viewmat[6]*(cov3d[2]*viewmat[4] + cov3d[4]*viewmat[5] + cov3d[5]*viewmat[6]))
-                      /(depth[idx] * depth[idx] * depth[idx]);
-    
-    dL_dd[idx] = dL_dcov2d[3*idx + 0] * dcov2d_0_dd 
-               + dL_dcov2d[3*idx + 1] * dcov2d_1_dd 
-               + dL_dcov2d[3*idx + 1] * dcov2d_2_dd;
+    glm::mat3 J = glm::mat3(
+        focal_x / t.z, 0.0f, -(focal_x * t.x) / (t.z * t.z),
+        0.0f, focal_y / t.z, -(focal_y * t.y) / (t.z * t.z),
+        0, 0, 0);
+
+    glm::mat3 Wmat = glm::mat3(
+        viewmat[0], viewmat[4], viewmat[8],
+        viewmat[1], viewmat[5], viewmat[9],
+        viewmat[2], viewmat[6], viewmat[10]);
+
+    glm::mat3 Vrk = glm::mat3(
+        cov3D[0], cov3D[1], cov3D[2],
+        cov3D[1], cov3D[3], cov3D[4],
+        cov3D[2], cov3D[4], cov3D[5]);
+
+    glm::mat3 T = Wmat * J;
+
+    glm::mat3 cov2D = glm::transpose(T) * glm::transpose(Vrk) * T;
+
+    // Use helper variables for 2D covariance entries. More compact.
+    float a = cov2D[0][0] += 0.3f;
+    float b = cov2D[0][1];
+    float c = cov2D[1][1] += 0.3f;
+
+    float denom = a * c - b * b;
+    float dL_da = 0, dL_db = 0, dL_dc = 0;
+    float denom2inv = 1.0f / ((denom * denom) + 0.0000001f);
+
+    printf("%.12f\n", denom2inv);
+
+    if (denom2inv != 0)
+    {
+        printf("%.12f\n", denom2inv);
+        
+        float* dL_dcov3D = dL_dcov3d + 6 * idx;
+        // Gradients of loss w.r.t. entries of 2D covariance matrix,
+        // given gradients of loss w.r.t. conic matrix (inverse covariance matrix).
+        // e.g., dL / da = dL / d_conic_a * d_conic_a / d_a
+        dL_da = denom2inv * (-c * c * dL_dconic.x + 2 * b * c * dL_dconic.y + (denom - a * c) * dL_dconic.z);
+        dL_dc = denom2inv * (-a * a * dL_dconic.z + 2 * a * b * dL_dconic.y + (denom - a * c) * dL_dconic.x);
+        dL_db = denom2inv * 2 * (b * c * dL_dconic.x - (denom + 2 * b * b) * dL_dconic.y + a * b * dL_dconic.z);
+
+        // Gradients of loss L w.r.t. each 3D covariance matrix (Vrk) entry, 
+        // given gradients w.r.t. 2D covariance matrix (diagonal).
+        // cov2D = transpose(T) * transpose(Vrk) * T;
+        dL_dcov3D[0] += (T[0][0] * T[0][0] * dL_da + T[0][0] * T[1][0] * dL_db + T[1][0] * T[1][0] * dL_dc);
+        dL_dcov3D[3] += (T[0][1] * T[0][1] * dL_da + T[0][1] * T[1][1] * dL_db + T[1][1] * T[1][1] * dL_dc);
+        dL_dcov3D[5] += (T[0][2] * T[0][2] * dL_da + T[0][2] * T[1][2] * dL_db + T[1][2] * T[1][2] * dL_dc);
+
+        // Gradients of loss L w.r.t. each 3D covariance matrix (Vrk) entry, 
+        // given gradients w.r.t. 2D covariance matrix (off-diagonal).
+        // Off-diagonal elements appear twice --> double the gradient.
+        // cov2D = transpose(T) * transpose(Vrk) * T;
+        dL_dcov3D[1] += 2 * T[0][0] * T[0][1] * dL_da + (T[0][0] * T[1][1] + T[0][1] * T[1][0]) * dL_db + 2 * T[1][0] * T[1][1] * dL_dc;
+        dL_dcov3D[2] += 2 * T[0][0] * T[0][2] * dL_da + (T[0][0] * T[1][2] + T[0][2] * T[1][0]) * dL_db + 2 * T[1][0] * T[1][2] * dL_dc;
+        dL_dcov3D[4] += 2 * T[0][2] * T[0][1] * dL_da + (T[0][1] * T[1][2] + T[0][2] * T[1][1]) * dL_db + 2 * T[1][1] * T[1][2] * dL_dc;
+    }
+
+    // Gradients of loss w.r.t. upper 2x3 portion of intermediate matrix T
+    // cov2D = transpose(T) * transpose(Vrk) * T;
+    float dL_dT00 = 2 * (T[0][0] * Vrk[0][0] + T[0][1] * Vrk[0][1] + T[0][2] * Vrk[0][2]) * dL_da +
+        (T[1][0] * Vrk[0][0] + T[1][1] * Vrk[0][1] + T[1][2] * Vrk[0][2]) * dL_db;
+    float dL_dT01 = 2 * (T[0][0] * Vrk[1][0] + T[0][1] * Vrk[1][1] + T[0][2] * Vrk[1][2]) * dL_da +
+        (T[1][0] * Vrk[1][0] + T[1][1] * Vrk[1][1] + T[1][2] * Vrk[1][2]) * dL_db;
+    float dL_dT02 = 2 * (T[0][0] * Vrk[2][0] + T[0][1] * Vrk[2][1] + T[0][2] * Vrk[2][2]) * dL_da +
+        (T[1][0] * Vrk[2][0] + T[1][1] * Vrk[2][1] + T[1][2] * Vrk[2][2]) * dL_db;
+    float dL_dT10 = 2 * (T[1][0] * Vrk[0][0] + T[1][1] * Vrk[0][1] + T[1][2] * Vrk[0][2]) * dL_dc +
+        (T[0][0] * Vrk[0][0] + T[0][1] * Vrk[0][1] + T[0][2] * Vrk[0][2]) * dL_db;
+    float dL_dT11 = 2 * (T[1][0] * Vrk[1][0] + T[1][1] * Vrk[1][1] + T[1][2] * Vrk[1][2]) * dL_dc +
+        (T[0][0] * Vrk[1][0] + T[0][1] * Vrk[1][1] + T[0][2] * Vrk[1][2]) * dL_db;
+    float dL_dT12 = 2 * (T[1][0] * Vrk[2][0] + T[1][1] * Vrk[2][1] + T[1][2] * Vrk[2][2]) * dL_dc +
+        (T[0][0] * Vrk[2][0] + T[0][1] * Vrk[2][1] + T[0][2] * Vrk[2][2]) * dL_db;
+
+    // Gradients of loss w.r.t. upper 3x2 non-zero entries of Jacobian matrix
+    // T = W * J
+    float dL_dJ00 = Wmat[0][0] * dL_dT00 + Wmat[0][1] * dL_dT01 + Wmat[0][2] * dL_dT02;
+    float dL_dJ02 = Wmat[2][0] * dL_dT00 + Wmat[2][1] * dL_dT01 + Wmat[2][2] * dL_dT02;
+    float dL_dJ11 = Wmat[1][0] * dL_dT10 + Wmat[1][1] * dL_dT11 + Wmat[1][2] * dL_dT12;
+    float dL_dJ12 = Wmat[2][0] * dL_dT10 + Wmat[2][1] * dL_dT11 + Wmat[2][2] * dL_dT12;
 }
 
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>

@@ -5,6 +5,15 @@ Visit us at https://github.com/NJU-3DV
 
 Author: NJU-3DV
 
+## EWA_Project
+```
+cd GS_Split
+pip install .
+cd ..
+python test/gs/full_test.py
+```
+
+
 ### Usage
 
 ```python
