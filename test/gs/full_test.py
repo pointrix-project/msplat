@@ -277,89 +277,91 @@ def ndc_to_pixel(ndc, size):
 
 if __name__ == "__main__":
     
-    os.system("pip install .")
-    os.system("pip install ./GS_Split")
+    # os.system("pip install .")
+    # os.system("pip install ./GS_Split")
     
-    # # ======================== Data ========================
-    # seed = 3
-    # torch.manual_seed(seed)
-    # torch.set_printoptions(precision=10)
+    # ======================== Data ========================
+    seed = 3
+    torch.manual_seed(seed)
+    torch.set_printoptions(precision=10)
         
-    # N = 1
+    N = 1
 
-    # W = 800
-    # H = 800
+    W = 800
+    H = 800
 
-    # fovx = 0.6911112070083618
-    # fovy = 0.6911112070083618
+    fovx = 0.6911112070083618
+    fovy = 0.6911112070083618
 
-    # fx = fov2focal(fovx, W)
-    # fy = fov2focal(fovy, H)
+    fx = fov2focal(fovx, W)
+    fy = fov2focal(fovy, H)
 
-    # viewmat = torch.Tensor([[6.1182e-01,  7.9096e-01, -6.7348e-03,  0.0000e+00], 
-    #                         [ 7.9099e-01, -6.1180e-01,  5.2093e-03,  0.0000e+00], 
-    #                         [ 1.3906e-14, -8.5126e-03, -9.9996e-01,  0.0000e+00], 
-    #                         [ 1.1327e-09,  1.0458e-09,  4.0311e+00,  1.0000e+00]]).cuda()
-    # projmat = getProjectionMatrix(fovx, fovy).transpose(0, 1)
-    # full_proj_transform = (viewmat.unsqueeze(0).bmm(projmat.unsqueeze(0))).squeeze(0)
+    viewmat = torch.Tensor([[6.1182e-01,  7.9096e-01, -6.7348e-03,  0.0000e+00], 
+                            [ 7.9099e-01, -6.1180e-01,  5.2093e-03,  0.0000e+00], 
+                            [ 1.3906e-14, -8.5126e-03, -9.9996e-01,  0.0000e+00], 
+                            [ 1.1327e-09,  1.0458e-09,  4.0311e+00,  1.0000e+00]]).cuda()
+    projmat = getProjectionMatrix(fovx, fovy).transpose(0, 1)
+    full_proj_transform = (viewmat.unsqueeze(0).bmm(projmat.unsqueeze(0))).squeeze(0)
 
-    # camparam = torch.Tensor([fx, fy, H/2, W/2]).cuda()
-    # xyz = torch.randn((N, 3)).cuda() * 2.6 - 1.3
+    camparam = torch.Tensor([fx, fy, H/2, W/2]).cuda()
+    xyz = torch.randn((N, 3)).cuda() * 2.6 - 1.3
 
-    # rand_scale = torch.randn(N, 3, device="cuda", dtype=torch.float)
-    # rand_quats = torch.randn(N, 4, device="cuda", dtype=torch.float)
-    # rand_uquats = rand_quats / torch.norm(rand_quats, 2, dim=-1, keepdim=True)
+    rand_scale = torch.randn(N, 3, device="cuda", dtype=torch.float)
+    rand_quats = torch.randn(N, 4, device="cuda", dtype=torch.float)
+    rand_uquats = rand_quats / torch.norm(rand_quats, 2, dim=-1, keepdim=True)
     
-    # # ======================== Cov3d ========================
-    # cov3d = gs.compute_cov3d(rand_scale, rand_uquats)
+    # ======================== Cov3d ========================
+    cov3d = gs.compute_cov3d(rand_scale, rand_uquats)
 
-    # cov3d_target = compute_cov3d(rand_scale, rand_uquats)
-    # torch.testing.assert_close(cov3d, cov3d_target)
+    cov3d_target = compute_cov3d(rand_scale, rand_uquats)
+    torch.testing.assert_close(cov3d, cov3d_target)
 
-    # tanfovx = math.tan(fovx * 0.5)
-    # tanfovy = math.tan(fovy * 0.5)
+    tanfovx = math.tan(fovx * 0.5)
+    tanfovy = math.tan(fovy * 0.5)
 
-    # raster_settings = GaussianRasterizationSettings(
-    #     image_height=H,
-    #     image_width=W,
-    #     tanfovx=tanfovx,
-    #     tanfovy=tanfovy,
-    #     viewmatrix=viewmat,
-    #     projmatrix=full_proj_transform,
-    #     debug=False
-    # )
+    raster_settings = GaussianRasterizationSettings(
+        image_height=H,
+        image_width=W,
+        tanfovx=tanfovx,
+        tanfovy=tanfovy,
+        viewmatrix=viewmat,
+        projmatrix=full_proj_transform,
+        debug=False
+    )
 
-    # depths_target, radii_target, means2D_target, cov3Ds_target, conics_target, tiles_touched_target = gaussian_preprocess(
-    #     xyz,
-    #     rand_scale,
-    #     rand_uquats,
-    #     cov3d,
-    #     raster_settings
-    # )
+    depths_target, radii_target, means2D_target, cov3Ds_target, conics_target, tiles_touched_target = gaussian_preprocess(
+        xyz,
+        rand_scale,
+        rand_uquats,
+        cov3d,
+        raster_settings
+    )
 
-    # uv, depth = gs.project_point(
-    #     xyz, 
-    #     viewmat, 
-    #     full_proj_transform,
-    #     camparam,
-    #     W, H
-    # )
+    uv, depth = gs.project_point(
+        xyz, 
+        viewmat, 
+        full_proj_transform,
+        camparam,
+        W, H
+    )
+    
+    print(uv, depth)
+    
+    xy = uv.clone()
+    xy[:, 0] = ndc_to_pixel(uv[:, 0], W)
+    xy[:, 1] = ndc_to_pixel(uv[:, 1], H)
 
-    # xy = uv.clone()
-    # xy[:, 0] = ndc_to_pixel(uv[:, 0], W)
-    # xy[:, 1] = ndc_to_pixel(uv[:, 1], H)
+    conic, radius, tiles_touched = gs.ewa_project(
+        cov3d, 
+        viewmat,
+        camparam,
+        uv,
+        depth,
+        xy,
+        W, H)
 
-    # conic, radius, tiles_touched = gs.ewa_project(
-    #     cov3d, 
-    #     viewmat,
-    #     camparam,
-    #     uv,
-    #     depth,
-    #     xy,
-    #     W, H)
-
-    # print(conics_target)
-    # print(conic)
+    print(conics_target)
+    print(conic)
 
 
 # def render(viewpoint_camera, pc, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, override_color = None):

@@ -4,6 +4,7 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 #include <torch/torch.h>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace cg = cooperative_groups;
 
@@ -54,6 +55,8 @@ __global__ void EWAProjectForwardCUDAKernel(
 
     float3 t = {uv[2*idx], uv[2*idx+1], depth[idx]};
 
+    printf("%f %f %f\n", t.x, t.y, t.z);
+
 	const float limx = 1.3f * 0.5 * W / focal_x;
 	const float limy = 1.3f * 0.5 * H / focal_y;
 	const float txtz = t.x / t.z;
@@ -71,24 +74,29 @@ __global__ void EWAProjectForwardCUDAKernel(
         0.0f, focal_y / t.z, -(focal_y * t.y) / (t.z * t.z),
         0, 0, 0);
     
-    printf("MY J1: %f, %f, %f\n", Jmat[0][0], Jmat[0][1], Jmat[0][2]);
-    printf("MY J2: %f, %f, %f\n", Jmat[1][0], Jmat[1][1], Jmat[1][2]);
-    printf("MY J3: %f, %f, %f\n", Jmat[2][0], Jmat[2][1], Jmat[2][2]);
+    printf("MY J:\n");
+    PrintMatrix(Jmat);
 
     glm::mat3 Wmat = glm::mat3(
         viewmat[0], viewmat[4], viewmat[8],
         viewmat[1], viewmat[5], viewmat[9],
         viewmat[2], viewmat[6], viewmat[10]);
 
-    printf("MY W1: %f, %f, %f\n", Wmat[0][0], Wmat[0][1], Wmat[0][2]);
-    printf("MY W2: %f, %f, %f\n", Wmat[1][0], Wmat[1][1], Wmat[1][2]);
-    printf("MY W3: %f, %f, %f\n", Wmat[2][0], Wmat[2][1], Wmat[2][2]);
+    printf("MY W:\n");
+    PrintMatrix(Wmat);
 
     glm::mat3 Tmat = Wmat * Jmat;
+
+    printf("MY T:\n");
+    PrintMatrix(Tmat);
+
     glm::mat3 Vrk = glm::mat3(
         cov3d[6 * idx + 0], cov3d[6 * idx + 1], cov3d[6 * idx + 2],
         cov3d[6 * idx + 1], cov3d[6 * idx + 3], cov3d[6 * idx + 4],
         cov3d[6 * idx + 2], cov3d[6 * idx + 4], cov3d[6 * idx + 5]);
+    
+    printf("MY Vrk:\n");
+    PrintMatrix(Vrk);
 
     glm::mat3 ewa_cov = glm::transpose(Tmat) * glm::transpose(Vrk) * Tmat;
 

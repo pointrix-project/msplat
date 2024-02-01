@@ -11,6 +11,8 @@
 #define GLM_FORCE_CUDA
 #include <glm/glm.hpp>
 
+#include <glm/gtc/type_ptr.hpp>
+
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 namespace cg = cooperative_groups;
@@ -63,13 +65,13 @@ __forceinline__ __device__ bool in_frustum(int idx,
 	return true;
 }
 
-__device__ inline void PrintMatrix(const glm::vec3 vec)
+__device__ void PrintMatrix(const glm::vec3 vec)
 {
     float* data = (float*)glm::value_ptr(vec);
     printf("[%f %f %f]\n", data[0], data[1], data[2]);
 }
 
-__device__ inline void PrintMatrix(const glm::mat3 mat)
+__device__ void PrintMatrix(const glm::mat3 mat)
 {   // Column Major
     float* data = (float*)glm::value_ptr(mat);
     printf("[");
@@ -93,6 +95,8 @@ __device__ float3 computeCov2DForwardCUDAKernel(const float3& mean, float focal_
 	// Transposes used to account for row-/column-major conventions.
 	float3 t = transformPoint4x3(mean, viewmatrix);
 
+    printf("%f %f %f\n", t.x, t.y, t.z);
+    
 	const float limx = 1.3f * tan_fovx;
 	const float limy = 1.3f * tan_fovy;
 	const float txtz = t.x / t.z;
@@ -105,7 +109,7 @@ __device__ float3 computeCov2DForwardCUDAKernel(const float3& mean, float focal_
 		0.0f, focal_y / t.z, -(focal_y * t.y) / (t.z * t.z),
 		0, 0, 0);
     
-    print("ORG J:")
+    printf("ORG J:\n");
     PrintMatrix(J);
 
 	glm::mat3 W = glm::mat3(
@@ -113,18 +117,24 @@ __device__ float3 computeCov2DForwardCUDAKernel(const float3& mean, float focal_
 		viewmatrix[1], viewmatrix[5], viewmatrix[9],
 		viewmatrix[2], viewmatrix[6], viewmatrix[10]);
     
-    printf("ORG W1: %f, %f, %f\n", W[0][0], W[0][1], W[0][2]);
-    printf("ORG W2: %f, %f, %f\n", W[1][0], W[1][1], W[1][2]);
-    printf("ORG W3: %f, %f, %f\n", W[2][0], W[2][1], W[2][2]);
+    printf("ORG W:\n");
+    PrintMatrix(W);
 
 	glm::mat3 T = W * J;
+    printf("ORG T:\n");
+    PrintMatrix(T);
 
 	glm::mat3 Vrk = glm::mat3(
 		cov3D[0], cov3D[1], cov3D[2],
 		cov3D[1], cov3D[3], cov3D[4],
 		cov3D[2], cov3D[4], cov3D[5]);
+    
+    printf("ORG Vrk:\n");
+    PrintMatrix(Vrk);
 
 	glm::mat3 cov = glm::transpose(T) * glm::transpose(Vrk) * T;
+    printf("ORG cov:\n");
+    PrintMatrix(cov);
 
 	// Apply low-pass filter: every Gaussian should be at least
 	// one pixel wide/high. Discard 3rd row and column.
