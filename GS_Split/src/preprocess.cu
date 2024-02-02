@@ -65,28 +65,6 @@ __forceinline__ __device__ bool in_frustum(int idx,
 	return true;
 }
 
-__device__ void PrintMatrix(const glm::vec3 vec)
-{
-    float* data = (float*)glm::value_ptr(vec);
-    printf("[%f %f %f]\n", data[0], data[1], data[2]);
-}
-
-__device__ void PrintMatrix(const glm::mat3 mat)
-{   // Column Major
-    float* data = (float*)glm::value_ptr(mat);
-    printf("[");
-    for(int i = 0; i < 3; i++){
-        printf("[");
-        for(int j = 0; j < 3; j++){
-            printf("%f ", data[j * 3 + i]);
-        }
-        printf("]");
-        if(i < 2)
-            printf("\n");
-    }
-    printf("]\n");
-}
-
 __device__ float3 computeCov2DForwardCUDAKernel(const float3& mean, float focal_x, float focal_y, float tan_fovx, float tan_fovy, const float* cov3D, const float* viewmatrix)
 {
 	// The following models the steps outlined by equations 29
@@ -95,46 +73,36 @@ __device__ float3 computeCov2DForwardCUDAKernel(const float3& mean, float focal_
 	// Transposes used to account for row-/column-major conventions.
 	float3 t = transformPoint4x3(mean, viewmatrix);
 
-    printf("%f %f %f\n", t.x, t.y, t.z);
+	// printf("org t %f %f %f\n", t.x, t.y, t.z);
     
 	const float limx = 1.3f * tan_fovx;
 	const float limy = 1.3f * tan_fovy;
+	// printf("tan_fovy: %f\n", tan_fovy);
+	
 	const float txtz = t.x / t.z;
 	const float tytz = t.y / t.z;
 	t.x = min(limx, max(-limx, txtz)) * t.z;
 	t.y = min(limy, max(-limy, tytz)) * t.z;
 
+	// printf("t %f %f %f\n", t.x, t.y, t.z);
+
 	glm::mat3 J = glm::mat3(
 		focal_x / t.z, 0.0f, -(focal_x * t.x) / (t.z * t.z),
 		0.0f, focal_y / t.z, -(focal_y * t.y) / (t.z * t.z),
 		0, 0, 0);
-    
-    printf("ORG J:\n");
-    PrintMatrix(J);
 
 	glm::mat3 W = glm::mat3(
 		viewmatrix[0], viewmatrix[4], viewmatrix[8],
 		viewmatrix[1], viewmatrix[5], viewmatrix[9],
 		viewmatrix[2], viewmatrix[6], viewmatrix[10]);
-    
-    printf("ORG W:\n");
-    PrintMatrix(W);
 
 	glm::mat3 T = W * J;
-    printf("ORG T:\n");
-    PrintMatrix(T);
-
 	glm::mat3 Vrk = glm::mat3(
 		cov3D[0], cov3D[1], cov3D[2],
 		cov3D[1], cov3D[3], cov3D[4],
 		cov3D[2], cov3D[4], cov3D[5]);
-    
-    printf("ORG Vrk:\n");
-    PrintMatrix(Vrk);
 
 	glm::mat3 cov = glm::transpose(T) * glm::transpose(Vrk) * T;
-    printf("ORG cov:\n");
-    PrintMatrix(cov);
 
 	// Apply low-pass filter: every Gaussian should be at least
 	// one pixel wide/high. Discard 3rd row and column.
@@ -243,8 +211,8 @@ __global__ void PreprocessForwardCUDAKernel(int P,
 	
 	// Compute 2D screen-space covariance matrix
 	float3 cov = computeCov2DForwardCUDAKernel(p_orig, focal_x, focal_y, tan_fovx, tan_fovy, cov3D, viewmatrix);
-	printf("ORG cov: %f, %f, %f\n", cov.x, cov.y, cov.z);
     
+	// printf("ORG cov, %f %f %f\n", cov.x, cov.y, cov.z);
 	// Invert covariance (EWA algorithm)
 	float det = (cov.x * cov.z - cov.y * cov.y);
 	if (det == 0.0f)
@@ -259,6 +227,9 @@ __global__ void PreprocessForwardCUDAKernel(int P,
 	float lambda1 = mid + sqrt(max(0.1f, mid * mid - det));
 	float lambda2 = mid - sqrt(max(0.1f, mid * mid - det));
 	float my_radius = ceil(3.f * sqrt(max(lambda1, lambda2)));
+	
+	// printf("org radii, %.12f %f %f %f %f\n", det, mid, lambda1, lambda2, my_radius);
+	
 	float2 mean2D = { ndc2Pix(p_proj.x, W), ndc2Pix(p_proj.y, H) };
 	uint2 rect_min, rect_max;
 	getRect(mean2D, my_radius, rect_min, rect_max, grid);
@@ -334,8 +305,6 @@ __global__ void computeCov2DBackwardCUDAKernel(int P,
 	float denom = a * c - b * b;
 	float dL_da = 0, dL_db = 0, dL_dc = 0;
 	float denom2inv = 1.0f / ((denom * denom) + 0.0000001f);
-
-    printf("%f\n", denom2inv);
 
 	if (denom2inv != 0)
 	{

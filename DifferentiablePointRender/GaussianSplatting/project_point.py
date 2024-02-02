@@ -5,7 +5,6 @@ from typing import Tuple
 from jaxtyping import Float, Int
 import DifferentiablePointRender.GaussianSplatting._C as _C
 
-
 def project_point(
     xyz: Float[Tensor, "*batch 3"],
     viewmat: Float[Tensor, "4 4"],
@@ -15,6 +14,26 @@ def project_point(
     nearest: float = 0.2,
     extent: float = 1.3
 )->Tuple[Tensor, Tensor]:
+    """_summary_
+    :param xyz: _description_
+    :type xyz: Float[Tensor, 
+    :param viewmat: _description_
+    :type viewmat: Float[Tensor, &quot;4 4&quot;]
+    :param projmat: _description_
+    :type projmat: Float[Tensor, &quot;4 4&quot;]
+    :param camparam: _description_
+    :type camparam: Float[Tensor, &quot;4&quot;]
+    :param W: _description_
+    :type W: int
+    :param H: _description_
+    :type H: int
+    :param nearest: _description_, defaults to 0.2
+    :type nearest: float, optional
+    :param extent: _description_, defaults to -1
+    :type extent: float, optional
+    :return: _description_
+    :rtype: Tuple[Tensor, Tensor]
+    """
     return _ProjectPoint.apply(
         xyz,
         viewmat,

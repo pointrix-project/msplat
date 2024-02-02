@@ -57,7 +57,10 @@ __global__ void projectPointForwardCUDAKernel(
     float3 p_view = transform_point_4x3(viewmat, pt);
 
     bool near_culling = p_view.z <= nearest;
-    bool extent_culling = p_proj.x < -extent || p_proj.x > extent || p_proj.y < -extent || p_proj.y > extent;
+    bool extent_culling = false;
+    if(extent > 0)
+        extent_culling = p_proj.x < -extent || p_proj.x > extent || p_proj.y < -extent || p_proj.y > extent;
+
     if (near_culling || extent_culling)
         return ;
     

@@ -1,7 +1,12 @@
+
 import torch
 import math
 import sys
 import os
+
+# os.system("pip install .")
+# os.system("pip install ./GS_Split")
+
 import DifferentiablePointRender.GaussianSplatting as gs
 
 from typing import NamedTuple
@@ -242,8 +247,6 @@ class GaussianRasterizationSettings(NamedTuple):
     projmatrix : torch.Tensor
     debug : bool
 
-
-
 def fov2focal(fov, pixels):
     return pixels / (2 * math.tan(fov / 2))
 
@@ -276,16 +279,12 @@ def ndc_to_pixel(ndc, size):
 
 
 if __name__ == "__main__":
-    
-    # os.system("pip install .")
-    # os.system("pip install ./GS_Split")
-    
     # ======================== Data ========================
-    seed = 3
+    seed = 121
     torch.manual_seed(seed)
     torch.set_printoptions(precision=10)
-        
-    N = 1
+    
+    N = 100
 
     W = 800
     H = 800
@@ -306,13 +305,23 @@ if __name__ == "__main__":
     camparam = torch.Tensor([fx, fy, H/2, W/2]).cuda()
     xyz = torch.randn((N, 3)).cuda() * 2.6 - 1.3
 
-    rand_scale = torch.randn(N, 3, device="cuda", dtype=torch.float)
-    rand_quats = torch.randn(N, 4, device="cuda", dtype=torch.float)
+    # generate scale in range of [0, 5]. scale must > 0
+    rand_scale = torch.rand(N, 3, device="cuda", dtype=torch.float) * 5 
+    rand_quats = torch.rand(N, 4, device="cuda", dtype=torch.float)
     rand_uquats = rand_quats / torch.norm(rand_quats, 2, dim=-1, keepdim=True)
+    
+    uv, depth = gs.project_point(
+        xyz, 
+        viewmat, 
+        full_proj_transform,
+        camparam,
+        W, H
+    )
+
+    visibility_status = (depth != 0).squeeze(-1)
     
     # ======================== Cov3d ========================
     cov3d = gs.compute_cov3d(rand_scale, rand_uquats)
-
     cov3d_target = compute_cov3d(rand_scale, rand_uquats)
     torch.testing.assert_close(cov3d, cov3d_target)
 
@@ -337,32 +346,19 @@ if __name__ == "__main__":
         raster_settings
     )
 
-    uv, depth = gs.project_point(
-        xyz, 
-        viewmat, 
-        full_proj_transform,
-        camparam,
-        W, H
-    )
-    
-    print(uv, depth)
-    
-    xy = uv.clone()
-    xy[:, 0] = ndc_to_pixel(uv[:, 0], W)
-    xy[:, 1] = ndc_to_pixel(uv[:, 1], H)
-
     conic, radius, tiles_touched = gs.ewa_project(
+        xyz,
         cov3d, 
         viewmat,
         camparam,
-        uv,
-        depth,
-        xy,
-        W, H)
-
-    print(conics_target)
-    print(conic)
-
+        uv, W, H,
+        visibility_status)
+    
+    # print(conic)
+    # print(conics_target)
+    torch.testing.assert_close(conic, conics_target)
+    torch.testing.assert_close(radius, radii_target)
+    torch.testing.assert_close(tiles_touched, tiles_touched_target)
 
 # def render(viewpoint_camera, pc, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, override_color = None):
 #     """

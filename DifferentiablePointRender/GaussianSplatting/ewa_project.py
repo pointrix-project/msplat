@@ -6,13 +6,12 @@ from jaxtyping import Float, Bool
 import DifferentiablePointRender.GaussianSplatting._C as _C
 
 def ewa_project(
+    xyz,
     cov3d,
     viewmat,
     camparam,
     uv,
-    depth,
-    xy,
-    W, H,
+    w, h,
     visibility_status=None
 )->Tuple[Tensor, Tensor, Tensor]:
     
@@ -20,13 +19,12 @@ def ewa_project(
         visibility_status = torch.ones_like(uv[:, 0], dtype=torch.bool)
         
     return _EWAProject.apply(
+        xyz,
         cov3d,
         viewmat,
         camparam,
         uv,
-        depth,
-        xy,
-        W, H,
+        w, h,
         visibility_status
     )
 
@@ -35,92 +33,78 @@ class _EWAProject(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx,
+        xyz,
         cov3d,
         viewmat,
         camparam,
         uv,
-        depth,
-        xy,
-        W, H,
+        w, h,
         visibility_status
     ):
         
         (
-            cov2d,
-            touched_tiles,
-            radii
+            conic,
+            radii,
+            touched_tiles
         ) = _C.ewa_project_forward(
+            xyz,
             cov3d,
             viewmat,
             camparam,
             uv,
-            depth,
-            xy,
-            W, H,
+            w, h,
             visibility_status
         )
         
-        ctx.W = W
-        ctx.H = H
         ctx.save_for_backward(
+            xyz,
             cov3d,
             viewmat,
             camparam,
-            uv,
-            depth,
-            xy,
-            visibility_status
+            radii
         )
         
-        return (cov2d, touched_tiles, radii)
+        return conic, radii, touched_tiles
     
     
     @staticmethod
     def backward(
         ctx,
-        dL_dcov2d,
-        dL_dtiles,
-        dL_draii
+        dL_dconic,
+        dL_dradii,
+        dL_dtiles
     ):
-        W = ctx.W
-        H = ctx.H
+        
         (
+            xyz,
             cov3d,
             viewmat,
             camparam,
-            uv,
-            depth,
-            xy,
-            visibility_status
+            radii
         ) = ctx.saved_tensors
         
         (
-            dL_dcov3d,
-            dL_dd
+            dL_dxyz,
+            dL_dcov3d
         ) = _C.ewa_project_backward(
+            xyz,
             cov3d,
             viewmat,
             camparam,
-            uv,
-            depth,
-            xy,
-            W, H,
-            visibility_status,
-            dL_dcov2d
+            radii,
+            dL_dconic
         )
         
         grads = (
-            # loss gradient w.r.t cov3d, √
+            # loss gradient w.r.t xyz
+            dL_dxyz,
+            # loss gradient w.r.t cov3d
             dL_dcov3d,
-            # loss gradient w.r.t viewmat, √ (future)
+            # loss gradient w.r.t viewmat
             None,
-            # loss gradient w.r.t camparam,
+            # loss gradient w.r.t camparam
             None,
-            # loss gradient w.r.t uv,
-            None,
-            # loss gradient w.r.t depth, √
-            dL_dd,
-            # loss gradient w.r.t xy,
+            # loss gradient w.r.t uv
             None,
             # loss gradient w.r.t W, 
             None,

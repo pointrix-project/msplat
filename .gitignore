@@ -3,7 +3,7 @@
 *.pyc
 doc
 build
-DifferentiablePointRender.egg-info
+*.egg-info
 test/gaussian-splatting/data
 test/gaussian-splatting/output
 *.so

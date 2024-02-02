@@ -20,7 +20,7 @@ def make_extension():
 		sources=source_files,
 		include_dirs=[
             os.path.join(ROOT_DIR, "include"),
-            os.path.join(ROOT_DIR, "third_party", "glm"),
+            os.path.join(os.path.dirname(ROOT_DIR), "third_party", "glm"),
         ],
 		extra_compile_args={"nvcc": ["-I" + os.path.join(ROOT_DIR, "third_party/glm/")]}
 	)
