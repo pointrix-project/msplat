@@ -188,22 +188,15 @@ if __name__ == "__main__":
 
     visibility_status = (depth != 0).squeeze(-1)
 
-    # xyz1 = xyz.clone().requires_grad_()
-    # xyz2 = xyz.clone().requires_grad_()
-    # cov3d1 = cov3d.clone().requires_grad_()
-    # cov3d2 = cov3d.clone().requires_grad_()
-    xyz1 = xyz.clone().requires_grad_()[3507:3508]
-    xyz2 = xyz.clone().requires_grad_()[3507:3508]
-    cov3d1 = cov3d.clone().requires_grad_()[3507:3508]
-    cov3d2 = cov3d.clone().requires_grad_()[3507:3508]
+    xyz1 = xyz.clone().requires_grad_()
+    xyz2 = xyz.clone().requires_grad_()
+    cov3d1 = cov3d.clone().requires_grad_()
+    cov3d2 = cov3d.clone().requires_grad_()
 
     xyz1.retain_grad()
     xyz2.retain_grad()
     cov3d1.retain_grad()
     cov3d2.retain_grad()
-
-    uv = uv[3507:3508]
-    visibility_status = visibility_status[3507:3508]
 
     # ============================================ Forward =====================================
     print("forward: ")

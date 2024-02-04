@@ -5,13 +5,13 @@ Visit us at https://github.com/NJU-3DV
 
 Author: NJU-3DV
 
-## EWA_Project
+<!-- ## EWA_Project
 ```
 cd GS_Split
 pip install .
 cd ..
 python test/gs/full_test.py
-```
+``` -->
 
 
 ### Usage
@@ -35,18 +35,22 @@ H, W # int (render resolution)
 ### render
 import DifferentiablePointRender.GaussianSplatting as gs
 
-# cov3d
-cov3d = gs.compute_cov3d(scales, rotations) # [N, 6]
-
-# shs to color
-viewdirs = ???
-color = gs.compute_sh(shs, degree, viewdirs) # [N, 3]
-
 # proj points
 viewmat = ???
 full_proj_transform = ???
 camparam = ???
 uv, depth = gs.project_point(xyzs, viewmat, full_proj_transform, camparam, W, H)
+visibility_status = depth != 0
+
+# cov3d
+cov3d = gs.compute_cov3d(scales, rotations, visibility_status) # [N, 6]
+
+# shs to color
+viewdirs = ???
+color = gs.compute_sh(shs, degree, viewdirs, visibility_status) # [N, 3]
+
+# ewa_project
+conic = ewa_project(xyz, cov3d, viewmat, camparam, uv, w, h, visibility_status) # [N, 3]
 
 # sort
 
