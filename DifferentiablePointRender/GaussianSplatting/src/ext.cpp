@@ -4,6 +4,7 @@
 #include <ewa_project.h>
 #include <sort_gaussian.h>
 #include <compute_sh.h>
+#include <alpha_blending.h>
 
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -17,4 +18,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("compute_tile_gaussian_range", &computeTileGaussianRange);
     m.def("compute_sh_forward", &computeSHForward);
     m.def("compute_sh_backward", &computeSHBackward);
+    m.def("alpha_blending_forward", &alphaBlendingForward);
 }
