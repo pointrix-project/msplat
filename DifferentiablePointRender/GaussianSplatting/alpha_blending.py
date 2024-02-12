@@ -10,7 +10,7 @@ def alpha_blending(
     conic, 
     opacity,
     feature,
-    gaussian_ids_sorted,
+    gaussian_idx_sorted,
     title_bins,
     bg, W, H
 ):
@@ -19,7 +19,7 @@ def alpha_blending(
         conic,
         opacity,
         feature,
-        gaussian_ids_sorted,
+        gaussian_idx_sorted,
         title_bins,
         bg,
         W,
@@ -35,54 +35,100 @@ class _AlphaBlending(torch.autograd.Function):
         conic,
         opacity,
         feature,
-        gaussian_ids_sorted,
+        gaussian_idx_sorted,
         tile_bins,
         bg, 
         W, 
         H):
         
-        rendered_feature = _C.alpha_blending_forward(
+        (
+            render_feature, 
+            final_T, 
+            ncontrib
+        ) = _C.alpha_blending_forward(
             uv,
             conic,
             opacity,
             feature,
-            gaussian_ids_sorted,
+            gaussian_idx_sorted,
             tile_bins,
             bg,
             W,
             H
         )
         
-        # save variables for backward
-        # ctx.save_for_backward(
-        #     scales, 
-        #     uquats, 
-        #     visibility_status)
+        ctx.W = W
+        ctx.H = H
+        ctx.bg = bg
+        ctx.save_for_backward(
+            uv,
+            conic,
+            opacity,
+            feature,
+            gaussian_idx_sorted,
+            tile_bins,
+            final_T,
+            ncontrib
+        )
         
-        return rendered_feature
+        return render_feature, final_T, ncontrib
 
     @staticmethod
-    def backward(ctx, dL_dtest):
-        # get saved variables from forward
-        # scales, uquats, visibility_status = ctx.saved_tensors
+    def backward(ctx, dL_drendered, dL_dT, dL_dncontrib):
+        W = ctx.W
+        H = ctx.H
+        ctx.bg = bg
         
-        # (
-        #     dL_dscales, 
-        #     dL_duquats
-        # ) = _C.compute_cov3d_backward(
-        #     scales, 
-        #     uquats, 
-        #     visibility_status, 
-        #     dL_dcov3Ds
-        # )
+        (
+            uv,
+            conic,
+            opacity,
+            feature,
+            gaussian_idx_sorted,
+            tile_bins,
+            final_T,
+            ncontrib
+        ) = ctx.saved_tensors
+        
+        (
+            dL_duv,
+            dL_dconic,
+            dL_dopacity,
+            dL_dfeature
+        ) = _C.alpha_blending_backward(
+            uv,
+            conic,
+            opacity,
+            feature,
+            gaussian_idx_sorted,
+            tile_bins,
+            bg,
+            W,
+            H,
+            final_T,
+            ncontrib,
+            dL_drendered
+        )
+        
+        grads = (
+            # grads w.r.t uv
+            dL_duv,
+            # grads w.r. conic,
+            dL_dconics,
+            # grads w.r. opacity,
+            dL_dopacity,
+            # grads w.r. feature,
+            dL_dfeature,
+            # grads w.r. gaussian_idx_sorted,
+            None,
+            # grads w.r. tile_bins,
+            None,
+            # grads w.r. bg, 
+            None,
+            # grads w.r. W, 
+            None,
+            # grads w.r. H
+            None
+        )
 
-        # grads = (
-        #     # loss gradient w.r.t scales
-        #     dL_dscales,
-        #     # loss gradient w.r.t uquats
-        #     dL_duquats,
-        #     # loss gradient w.r.t visibility_status
-        #     None,
-        # )
-
-        return None
+        return grads

@@ -21,21 +21,21 @@ alphaBlendingForwardCUDAKernel(
     const int* __restrict__ gaussian_idx_sorted,
     const int2* __restrict__ tile_bins,
     const float bg, const int C,
-    const int W, const int H,
-    const dim3 tile_grid, 
+    const int W, const int H, 
     float* __restrict__ final_T,
     int* __restrict__ ncontrib,
     float* __restrict__ rendered_feature
 )
 {
     auto block = cg::this_thread_block();
-    int32_t tile_id = block.group_index().y * tile_grid.x + block.group_index().x;
+    int32_t tile_grid_x = (W + BLOCK_X - 1) / BLOCK_X;
+    int32_t tile_id = block.group_index().y * tile_grid_x + block.group_index().x;
     uint2 pix = { 
         block.group_index().x * BLOCK_X + block.thread_index().x, 
         block.group_index().y * BLOCK_Y + block.thread_index().y
     };
-	uint32_t pix_id = W * pix.y + pix.x;
-	float2 pixf = { (float)pix.x, (float)pix.y };
+    uint32_t pix_id = W * pix.y + pix.x;
+    float2 pixf = { (float)pix.x, (float)pix.y };
     const int c_num = min(CNum, C);
 
     bool inside = pix.x < W && pix.y < H;
@@ -58,20 +58,19 @@ alphaBlendingForwardCUDAKernel(
     for(int i = 0; i < rounds; i++, toDo-= BLOCK_SIZE)
     {
         int num_done = __syncthreads_count(done);
-		if (num_done == BLOCK_SIZE)
-			break;
+        if (num_done == BLOCK_SIZE)
+            break;
 
-        // Collectively fetch per-Gaussian data from global to shared
-		int progress = i * BLOCK_SIZE + block.thread_rank();
-		if (range.x + progress < range.y)
-		{
-			int coll_id = gaussian_idx_sorted[range.x + progress];
-			collected_id[block.thread_rank()] = coll_id;
-			collected_uv[block.thread_rank()] = uv[coll_id];
-			collected_conic[block.thread_rank()] = conic[coll_id];
-			collected_opacity[block.thread_rank()] = opacity[coll_id];
-		}
-		block.sync();
+        int progress = i * BLOCK_SIZE + block.thread_rank();
+        if (range.x + progress < range.y)
+        {
+            int coll_id = gaussian_idx_sorted[range.x + progress];
+            collected_id[block.thread_rank()] = coll_id;
+            collected_uv[block.thread_rank()] = uv[coll_id];
+            collected_conic[block.thread_rank()] = conic[coll_id];
+            collected_opacity[block.thread_rank()] = opacity[coll_id];
+        }
+        block.sync();
 
         for(int j = 0; !done && j < min(BLOCK_SIZE, toDo); j++)
         {
@@ -97,7 +96,6 @@ alphaBlendingForwardCUDAKernel(
                 F[k] += feature[k * P + collected_id[j]] * alpha * T;
             
             T = next_T;
-
             last_contributor = contributor;
         }
     }
@@ -111,7 +109,135 @@ alphaBlendingForwardCUDAKernel(
     }
 }
 
-torch::Tensor
+template <uint32_t CNum>
+__global__ void __launch_bounds__(BLOCK_X * BLOCK_Y)
+alphaBlendingBackwardCUDAKernel(
+    const int P,
+    const float2* __restrict__ uv,
+    const float3* __restrict__ conic,
+    const float* __restrict__ opacity,
+    const float* __restrict__ feature,
+    const int* __restrict__ gaussian_idx_sorted,
+    const int2* __restrict__ tile_bins,
+    const float bg, const int C,
+    const int W, const int H,
+    float* __restrict__ final_T,
+    int* __restrict__ ncontrib,
+    const float* __restrict__ dL_drendered,
+    float2* __restrict__ dL_duv,
+    float3* __restrict__ dL_dconic,
+    float* __restrict__ dL_dopacity,
+    float* __restrict__ dL_dfeature
+){
+    auto block = cg::this_thread_block();
+    int32_t tile_grid_x = (W + BLOCK_X - 1) / BLOCK_X;
+    int32_t tile_id = block.group_index().y * tile_grid_x + block.group_index().x;
+    uint2 pix = { 
+        block.group_index().x * BLOCK_X + block.thread_index().x, 
+        block.group_index().y * BLOCK_Y + block.thread_index().y
+    };
+    uint32_t pix_id = W * pix.y + pix.x;
+    float2 pixf = { (float)pix.x, (float)pix.y };
+    const int c_num = min(CNum, C);
+
+    bool inside = pix.x < W && pix.y < H;
+    bool done = !inside;
+
+    int2 range = tile_bins[tile_id];
+    const int rounds = ((range.y - range.x + BLOCK_SIZE - 1) / BLOCK_SIZE);
+    int toDo = range.y - range.x;
+
+    __shared__ int collected_id[BLOCK_SIZE];
+    __shared__ float2 collected_uv[BLOCK_SIZE];
+    __shared__ float3 collected_conic[BLOCK_SIZE];
+    __shared__ float collected_opacity[BLOCK_SIZE];
+    __shared__ float collected_feature[CNum * BLOCK_SIZE];
+
+    const float T_final = inside? final_T[pix_id]: 0;
+    float T = T_final;
+
+    uint32_t contributor = toDo;
+    const int last_contributor = inside ? ncontrib[pix_id] : 0;
+
+    float accum_rec[CNum] = { 0 };
+    float dL_dpixel[CNum];
+    if(inside)
+        for(int i = 0; i < C; i++)
+            dL_dpixel[i] = dL_drendered[i * P + pix_id];
+    
+    float last_alpha = 0;
+    float last_feature[CNum] = { 0 };
+
+    for (int i = 0; i < rounds; i++, toDo -= BLOCK_SIZE)
+    {
+        block.sync();
+        const int progress = i * BLOCK_SIZE + block.thread_rank();
+        if (range.x + progress < range.y)
+        {
+            const int coll_id = gaussian_idx_sorted[range.y - progress - 1];
+            collected_id[block.thread_rank()] = coll_id;
+            collected_uv[block.thread_rank()] = uv[coll_id];
+            collected_conic[block.thread_rank()] = conic[coll_id];
+            collected_opacity[block.thread_rank()] = opacity[coll_id];
+            for (int i = 0; i < C; i++)
+                collected_feature[i * BLOCK_SIZE + block.thread_rank()] = feature[coll_id * C + i];
+        }
+        block.sync();
+
+        for (int j = 0; !done && j < min(BLOCK_SIZE, toDo); j++)
+        {
+            contributor--;
+            if (contributor >= last_contributor)
+                continue;
+
+            const float2 xy = collected_uv[j];
+            const float2 d = { xy.x - pixf.x, xy.y - pixf.y };
+            const float3 conic = collected_conic[j];
+            const float opacity = collected_opacity[j];
+            const float power = -0.5f * (conic.x * d.x * d.x + conic.z * d.y * d.y) - conic.y * d.x * d.y;
+            if (power > 0.0f)
+                continue;
+
+            const float G = exp(power);
+            const float alpha = min(0.99f, opacity * G);
+            if (alpha < 1.0f / 255.0f)
+                continue;
+
+            T = T / (1.f - alpha);
+            const float dchannel_dcolor = alpha * T;
+
+            float dL_dalpha = 0.0f;
+            const int global_id = collected_id[j];
+            for (int ch = 0; ch < C; ch++)
+            {
+                const float c = collected_feature[ch * BLOCK_SIZE + j];
+                accum_rec[ch] = last_alpha * last_feature[ch] + (1.f - last_alpha) * accum_rec[ch];
+                last_feature[ch] = c;
+
+                const float dL_dchannel = dL_dpixel[ch];
+                dL_dalpha += (c - accum_rec[ch]) * dL_dchannel;
+                atomicAdd(&(dL_dfeature[global_id * C + ch]), dchannel_dcolor * dL_dchannel);
+            }
+            dL_dalpha *= T;
+            last_alpha = alpha;
+            
+            const float dL_dG = opacity * dL_dalpha;
+            const float gdx = G * d.x;
+            const float gdy = G * d.y;
+            const float dG_ddelx = -gdx * conic.x - gdy * conic.y;
+            const float dG_ddely = -gdy * conic.z - gdx * conic.y;
+
+            atomicAdd(&dL_duv[global_id].x, dL_dG * dG_ddelx * 0.5 * W);
+            atomicAdd(&dL_duv[global_id].y, dL_dG * dG_ddely * 0.5 * H);
+            atomicAdd(&dL_dconic[global_id].x, -0.5f * gdx * d.x * dL_dG);
+            atomicAdd(&dL_dconic[global_id].y, -0.5f * gdx * d.y * dL_dG);
+            atomicAdd(&dL_dconic[global_id].z, -0.5f * gdy * d.y * dL_dG);
+            atomicAdd(&(dL_dopacity[global_id]), G * dL_dalpha);
+        }
+    }
+}
+
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>
 alphaBlendingForward(
     const torch::Tensor& uv,
     const torch::Tensor& conic,
@@ -158,7 +284,7 @@ alphaBlendingForward(
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 gaussian_idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
-                bg, C - C0, W, H, tile_grid,
+                bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
                 rendered_feature.data_ptr<float>() + render_data_offset
@@ -174,7 +300,7 @@ alphaBlendingForward(
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 gaussian_idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
-                bg, C - C0, W, H, tile_grid,
+                bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
                 rendered_feature.data_ptr<float>() + render_data_offset
@@ -190,7 +316,7 @@ alphaBlendingForward(
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 gaussian_idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
-                bg, C - C0, W, H, tile_grid,
+                bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
                 rendered_feature.data_ptr<float>() + render_data_offset
@@ -206,7 +332,7 @@ alphaBlendingForward(
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 gaussian_idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
-                bg, C - C0, W, H, tile_grid,
+                bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
                 rendered_feature.data_ptr<float>() + render_data_offset
@@ -222,7 +348,7 @@ alphaBlendingForward(
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 gaussian_idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
-                bg, C - C0, W, H, tile_grid,
+                bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
                 rendered_feature.data_ptr<float>() + render_data_offset
@@ -238,7 +364,7 @@ alphaBlendingForward(
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 gaussian_idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
-                bg, C - C0, W, H, tile_grid,
+                bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
                 rendered_feature.data_ptr<float>() + render_data_offset
@@ -247,5 +373,69 @@ alphaBlendingForward(
         }
     }
 
-    return rendered_feature;
+    return std::make_tuple(rendered_feature, final_T, ncontrib);
+}
+
+// 3, 6, 12, 18, 24, 32
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
+alphaBlendingBackward(
+    const torch::Tensor& uv,
+    const torch::Tensor& conic,
+    const torch::Tensor& opacity,
+    const torch::Tensor& feature,
+    const torch::Tensor& gaussian_idx_sorted,
+    const torch::Tensor& tile_bins,
+    const float bg,
+    const int W, const int H,
+    const torch::Tensor &final_T,
+    const torch::Tensor &ncontrib,
+    const torch::Tensor& dL_drendered
+){
+    CHECK_INPUT(uv);
+    CHECK_INPUT(conic);
+    CHECK_INPUT(opacity);
+    CHECK_INPUT(feature);
+    CHECK_INPUT(gaussian_idx_sorted);
+    CHECK_INPUT(tile_bins);
+    CHECK_INPUT(final_T);
+    CHECK_INPUT(ncontrib);
+    CHECK_INPUT(dL_drendered);
+
+    const int P = feature.size(0);
+    const int C = feature.size(1);
+
+    auto float_opts = feature.options().dtype(torch::kFloat32);
+    torch::Tensor dL_duv = torch::zeros({P, 2}, float_opts);
+    torch::Tensor dL_dconic = torch::zeros({P, 3}, float_opts);
+    torch::Tensor dL_dopacity = torch::zeros({P, 1}, float_opts);
+    torch::Tensor dL_dfeature_permute = torch::zeros({C, P}, float_opts);
+
+    const dim3 tile_grid((W + BLOCK_X - 1) / BLOCK_X, (H + BLOCK_Y - 1) / BLOCK_Y, 1);
+    const dim3 block(BLOCK_X, BLOCK_Y, 1);
+
+    // [C, N]
+    torch::Tensor feature_permute = feature.transpose(0, 1);
+
+    alphaBlendingBackwardCUDAKernel<3> <<<tile_grid, block>>>(
+        P,
+        (float2*)uv.contiguous().data_ptr<float>(),
+        (float3*)conic.contiguous().data_ptr<float>(),
+        opacity.contiguous().data_ptr<float>(),
+        feature_permute.contiguous().data_ptr<float>(),
+        gaussian_idx_sorted.contiguous().data_ptr<int>(),
+        (int2*)tile_bins.contiguous().data_ptr<int>(),
+        bg, C, W, H,
+        final_T.contiguous().data_ptr<float>(),
+        ncontrib.contiguous().data_ptr<int>(),
+        dL_drendered.contiguous().data_ptr<float>(),
+        (float2*)dL_duv.data_ptr<float>(),
+        (float3*)dL_dconic.data_ptr<float>(),
+        dL_dopacity.data_ptr<float>(),
+        dL_dfeature_permute.data_ptr<float>()
+    );
+
+    // [N, C]
+    torch::Tensor dL_dfeature = dL_dfeature_permute.transpose(0, 1);
+
+    return std::make_tuple(dL_duv, dL_dconic, dL_dopacity, dL_dfeature);
 }

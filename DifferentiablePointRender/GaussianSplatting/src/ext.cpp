@@ -19,4 +19,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("compute_sh_forward", &computeSHForward);
     m.def("compute_sh_backward", &computeSHBackward);
     m.def("alpha_blending_forward", &alphaBlendingForward);
+    m.def("alpha_blending_backward", &alphaBlendingBackward);
 }
