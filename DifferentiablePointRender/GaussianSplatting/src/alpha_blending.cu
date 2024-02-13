@@ -80,9 +80,13 @@ alphaBlendingForwardCUDAKernel(
                 collected_uv[j].y - pixf.y
                 };
             float power = -0.5f * (collected_conic[j].x * vec.x * vec.x + collected_conic[j].z * vec.y * vec.y) - collected_conic[j].y * vec.x * vec.y;
+            
+            if(power > 0)
+                continue;
+            
             float alpha = min(0.99f, collected_opacity[j] * exp(power));
 
-            if(power > 0 || alpha < 1.0 / 255.0f)
+            if(alpha < 1.0 / 255.0f)
                 continue;
 
             float next_T = T * (1 - alpha);
@@ -160,14 +164,13 @@ alphaBlendingBackwardCUDAKernel(
     const int last_contributor = inside ? ncontrib[pix_id] : 0;
 
     float accum_rec[CNum] = { 0 };
-    float dL_dpixel[CNum];
+    float dL_dpixel[CNum] = { 0 };
     if(inside)
-        for(int i = 0; i < C; i++)
-            dL_dpixel[i] = dL_drendered[i * P + pix_id];
+        for(int ch = 0; ch < c_num; ch++)
+            dL_dpixel[ch] = dL_drendered[ch * H * W + pix_id];
     
     float last_alpha = 0;
     float last_feature[CNum] = { 0 };
-
     for (int i = 0; i < rounds; i++, toDo -= BLOCK_SIZE)
     {
         block.sync();
@@ -179,8 +182,8 @@ alphaBlendingBackwardCUDAKernel(
             collected_uv[block.thread_rank()] = uv[coll_id];
             collected_conic[block.thread_rank()] = conic[coll_id];
             collected_opacity[block.thread_rank()] = opacity[coll_id];
-            for (int i = 0; i < C; i++)
-                collected_feature[i * BLOCK_SIZE + block.thread_rank()] = feature[coll_id * C + i];
+            for (int ch = 0; ch < c_num; ch++)
+                collected_feature[ch * BLOCK_SIZE + block.thread_rank()] = feature[ch * P + coll_id];
         }
         block.sync();
 
@@ -190,16 +193,19 @@ alphaBlendingBackwardCUDAKernel(
             if (contributor >= last_contributor)
                 continue;
 
-            const float2 xy = collected_uv[j];
-            const float2 d = { xy.x - pixf.x, xy.y - pixf.y };
-            const float3 conic = collected_conic[j];
-            const float opacity = collected_opacity[j];
-            const float power = -0.5f * (conic.x * d.x * d.x + conic.z * d.y * d.y) - conic.y * d.x * d.y;
+            float2 vec = { 
+                collected_uv[j].x - pixf.x, 
+                collected_uv[j].y - pixf.y
+                };
+
+            const float3 conic2d = collected_conic[j];
+            const float power = -0.5f * (conic2d.x * vec.x * vec.x + conic2d.z * vec.y * vec.y) - conic2d.y * vec.x * vec.y;
             if (power > 0.0f)
                 continue;
 
             const float G = exp(power);
-            const float alpha = min(0.99f, opacity * G);
+            const float opac = collected_opacity[j];
+            const float alpha = min(0.99f, opac * G);
             if (alpha < 1.0f / 255.0f)
                 continue;
 
@@ -208,31 +214,30 @@ alphaBlendingBackwardCUDAKernel(
 
             float dL_dalpha = 0.0f;
             const int global_id = collected_id[j];
-            for (int ch = 0; ch < C; ch++)
+            for (int ch = 0; ch < c_num; ch++)
             {
-                const float c = collected_feature[ch * BLOCK_SIZE + j];
+                const float current_feature = collected_feature[ch * BLOCK_SIZE + j];
                 accum_rec[ch] = last_alpha * last_feature[ch] + (1.f - last_alpha) * accum_rec[ch];
-                last_feature[ch] = c;
+                last_feature[ch] = current_feature;
 
-                const float dL_dchannel = dL_dpixel[ch];
-                dL_dalpha += (c - accum_rec[ch]) * dL_dchannel;
-                atomicAdd(&(dL_dfeature[global_id * C + ch]), dchannel_dcolor * dL_dchannel);
+                dL_dalpha += (current_feature - accum_rec[ch]) * dL_dpixel[ch];
+                atomicAdd(&dL_dfeature[ch * P + global_id], dchannel_dcolor * dL_dpixel[ch]);
             }
             dL_dalpha *= T;
             last_alpha = alpha;
             
-            const float dL_dG = opacity * dL_dalpha;
-            const float gdx = G * d.x;
-            const float gdy = G * d.y;
-            const float dG_ddelx = -gdx * conic.x - gdy * conic.y;
-            const float dG_ddely = -gdy * conic.z - gdx * conic.y;
+            const float dL_dG = opac * dL_dalpha;
+            const float2 dG_dvec = {
+                - G * vec.x * conic2d.x - G * vec.y * conic2d.y,
+                - G * vec.y * conic2d.z - G * vec.x * conic2d.y
+            };
 
-            atomicAdd(&dL_duv[global_id].x, dL_dG * dG_ddelx * 0.5 * W);
-            atomicAdd(&dL_duv[global_id].y, dL_dG * dG_ddely * 0.5 * H);
-            atomicAdd(&dL_dconic[global_id].x, -0.5f * gdx * d.x * dL_dG);
-            atomicAdd(&dL_dconic[global_id].y, -0.5f * gdx * d.y * dL_dG);
-            atomicAdd(&dL_dconic[global_id].z, -0.5f * gdy * d.y * dL_dG);
-            atomicAdd(&(dL_dopacity[global_id]), G * dL_dalpha);
+            atomicAdd(&dL_duv[global_id].x, dL_dG * dG_dvec.x);
+            atomicAdd(&dL_duv[global_id].y, dL_dG * dG_dvec.y);
+            atomicAdd(&dL_dconic[global_id].x, -0.5f * G * vec.x * vec.x * dL_dG);
+            atomicAdd(&dL_dconic[global_id].y, - G * vec.x * vec.y * dL_dG);
+            atomicAdd(&dL_dconic[global_id].z, -0.5f * G * vec.y * vec.y * dL_dG);
+            atomicAdd(&dL_dopacity[global_id], G * dL_dalpha);
         }
     }
 }
@@ -267,7 +272,7 @@ alphaBlendingForward(
     const dim3 tile_grid((W + BLOCK_X - 1) / BLOCK_X, (H + BLOCK_Y - 1) / BLOCK_Y, 1);
     const dim3 block(BLOCK_X, BLOCK_Y, 1);
 
-    // [C, N]
+    // Transpose to a [C, N] tensor for scalable feature implementation.
     torch::Tensor feature_permute = feature.transpose(0, 1);
 
     int C0 = 0;

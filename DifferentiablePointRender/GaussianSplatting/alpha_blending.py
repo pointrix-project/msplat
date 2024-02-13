@@ -77,7 +77,7 @@ class _AlphaBlending(torch.autograd.Function):
     def backward(ctx, dL_drendered, dL_dT, dL_dncontrib):
         W = ctx.W
         H = ctx.H
-        ctx.bg = bg
+        bg = ctx.bg
         
         (
             uv,
@@ -114,7 +114,7 @@ class _AlphaBlending(torch.autograd.Function):
             # grads w.r.t uv
             dL_duv,
             # grads w.r. conic,
-            dL_dconics,
+            dL_dconic,
             # grads w.r. opacity,
             dL_dopacity,
             # grads w.r. feature,

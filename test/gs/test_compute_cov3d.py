@@ -66,6 +66,7 @@ if __name__ == "__main__":
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
     torch.testing.assert_close(out_pytorch, out_cuda)
+    print("Forward pass.")
     
     # ============================================ Backward =====================================
     print("backward: ")
@@ -84,3 +85,4 @@ if __name__ == "__main__":
     
     torch.testing.assert_close(scales1.grad, scales2.grad)
     torch.testing.assert_close(uquats1.grad, uquats2.grad)
+    print("Backward pass.")
