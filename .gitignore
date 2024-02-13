@@ -4,7 +4,4 @@
 doc
 build
 *.egg-info
-test/gaussian-splatting/data
-test/gaussian-splatting/output
 *.so
-pro_grad.py

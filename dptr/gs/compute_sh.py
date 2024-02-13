@@ -3,7 +3,7 @@ import torch
 from torch import Tensor
 from typing import Tuple
 from jaxtyping import Float, Bool
-import DifferentiablePointRender.GaussianSplatting._C as _C
+import dptr.gs._C as _C
 
 
 def compute_sh(

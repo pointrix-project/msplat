@@ -6,9 +6,9 @@ from torch.utils.cpp_extension import CUDAExtension, BuildExtension
 
 __version__ = "1.0.0"
 
-module_name = "DifferentiablePointRender"
+module_name = "dptr"
 submodule_names = [
-    "GaussianSplatting"
+    "gs"
     # more submodules in the future
 ]
 
@@ -40,12 +40,15 @@ def search_third_party():
     
 
 def make_extensions():
+    # -g for debug information
+    # -O3 for higher level of optimization
+    # --use_fast_math for results in a faster runtime, but may sacrifice some mathematical precision.
     exts = [CUDAExtension(
             name=f"{module_name}.{submodule}._C",
             sources=search_sources(submodule),
             include_dirs=search_includes()+search_third_party(),
-            extra_compile_args={'cxx': ['-g'], 'nvcc': ['-g']},
-            #  extra_compile_args={"nvcc": ["-O3", "--use_fast_math"]}
+            # extra_compile_args={'cxx': ['-g'], 'nvcc': ['-g']},
+            extra_compile_args={"cxx": ["-O3"], "nvcc": ["-O3", "--use_fast_math"]},
         )
         for submodule in submodule_names
     ]
@@ -53,10 +56,10 @@ def make_extensions():
     return exts
 
 setup(
-    name="DifferentiablePointRender",
+    name="dprt",
     version=__version__,
-    description="Differentiable Point Render CUDA extension for Pointrix",
-    url="https://github.com/NJU-3DV/DifferentiablePointRender",
+    description="Differentiable PoinT Cloud Renderer (DPTR) powers POINTRIX for differentiable rendering of point clouds.",
+    url="https://github.com/NJU-3DV/DPTR",
     python_requires=">=3.7",
     install_requires=[
         "torch",

@@ -2,7 +2,7 @@
 import time
 import math
 import torch
-import DifferentiablePointRender.GaussianSplatting as gs
+import dptr.gs as gs
 
 
 def ndc_to_pixel(ndc, size, pp):

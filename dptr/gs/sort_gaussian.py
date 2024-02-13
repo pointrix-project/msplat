@@ -3,7 +3,8 @@ import torch
 from torch import Tensor
 from typing import Tuple
 from jaxtyping import Float
-import DifferentiablePointRender.GaussianSplatting._C as _C
+import dptr.gs._C as _C
+
 
 def sort_gaussian(
     uv: Float[Tensor, "num 2"],

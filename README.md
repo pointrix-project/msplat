@@ -1,9 +1,24 @@
 # DPT-Renderer: Differentiable Point Renderer
-The DPT-renderer, full name as differentiable point renderer, serves the backend of POINTRIX. It aims to provide some common underlying operations in differentiable point cloud rendering. Although, only tile based rasterization for 3D Gaussians splatting is supported here, more features will be supported soon.
+```
+ ____  ____ _____ ____  
+|  _ \|  _ \_   _|  _ \ 
+| | | | |_) || | | |_) |
+| |_| |  __/ | | |  _ < 
+|____/|_|    |_| |_| \_\
+```
+The Differentiable PoinT Cloud Renderer (DPTR), serves as the backend of POINTRIX and is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
 
 Visit us at https://github.com/NJU-3DV
 
 Author: NJU-3DV
+
+## Tutorial: Optimizing a single image using 3D Gaussian Splatting
+
+
+## Plans
+- [ ] Optimization on camera.
+- [ ] Higher order spherical harmonic.
+- [ ] Spherical Gaussian.
 
 <!-- ## EWA_Project
 ```
@@ -14,7 +29,7 @@ python test/gs/full_test.py
 ``` -->
 
 
-### Usage
+<!-- ### Usage
 
 ```python
 ### (post-activation) gaussians:
@@ -60,4 +75,4 @@ conic = ewa_project(xyz, cov3d, viewmat, camparam, uv, w, h, visibility_status) 
 image = ??? # or features?
 alpha = ???
 depth = ???
-```
+``` -->

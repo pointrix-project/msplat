@@ -1,7 +1,7 @@
 
 import time
 import torch
-import DifferentiablePointRender.GaussianSplatting as gs
+import dptr.gs as gs
 
 
 def compute_sh_torch_impl(sh_coeffs, viewdirs):

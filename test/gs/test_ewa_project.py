@@ -2,7 +2,7 @@
 import time
 import math
 import torch
-import DifferentiablePointRender.GaussianSplatting as gs
+import dptr.gs as gs
 
 BLOCK_X = 16
 BLOCK_Y = 16

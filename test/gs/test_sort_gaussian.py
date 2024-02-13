@@ -1,6 +1,6 @@
 
 import torch
-import DifferentiablePointRender.GaussianSplatting as gs
+import dptr.gs as gs
 
 if __name__ == "__main__":
     

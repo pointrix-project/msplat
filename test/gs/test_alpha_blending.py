@@ -3,7 +3,7 @@ import math
 import time
 import torch
 import numpy as np
-import DifferentiablePointRender.GaussianSplatting as gs
+import dptr.gs as gs
 import matplotlib.pyplot as plt
 
 def alpha_blending_torch_impl(
