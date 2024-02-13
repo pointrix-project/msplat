@@ -41,7 +41,7 @@ if __name__ == "__main__":
     
     print("=============================== running test on compute_cov3d ===============================")
     # generate data
-    rand_scale = torch.randn(N, 3, device="cuda", dtype=torch.float)
+    rand_scale = torch.rand(N, 3, device="cuda", dtype=torch.float)
     rand_quats = torch.randn(N, 4, device="cuda", dtype=torch.float)
     rand_uquats = rand_quats / torch.norm(rand_quats, 2, dim=-1, keepdim=True)
     

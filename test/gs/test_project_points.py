@@ -100,7 +100,7 @@ if __name__ == "__main__":
     projmat = getProjectionMatrix(fovx, fovy).transpose(0, 1)
     full_proj_transform = (viewmat.unsqueeze(0).bmm(projmat.unsqueeze(0))).squeeze(0)
     
-    camparam = torch.Tensor([fx, fy, 0, 0]).cuda()
+    camparam = torch.Tensor([fx, fy, 0.0, 0.0]).cuda()
     xyz = torch.randn((N, 3)).cuda() * 2.6 - 1.3
     
     xyz1 = xyz.clone().requires_grad_()

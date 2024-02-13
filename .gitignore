@@ -5,3 +5,4 @@ doc
 build
 *.egg-info
 *.so
+data

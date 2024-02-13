@@ -1,4 +1,4 @@
-# DPT-Renderer: Differentiable Point Renderer
+# DPTR: Differentiable PoinT Renderer
 ```
  ____  ____ _____ ____  
 |  _ \|  _ \_   _|  _ \ 
@@ -13,7 +13,7 @@ Visit us at https://github.com/NJU-3DV
 Author: NJU-3DV
 
 ## Tutorial: Optimizing a single image using 3D Gaussian Splatting
-
+In this tutorial, we use dptr to finish a 
 
 ## Plans
 - [ ] Optimization on camera.
