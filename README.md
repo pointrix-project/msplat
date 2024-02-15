@@ -1,4 +1,5 @@
-# <p align="center"><font color="#024376">D</font><font color="#5c92be">P</font><font color="#a1c0d4">T</font><font color="#f87e5d">R</font>: <font color="#024376">D</font>ifferentiable <font color="#5c92be">P</font>oin<font color="#a1c0d4">T</font> <font color="#f87e5d">R</font>enderer</p>
+# <p align="center"><span style="color:#024376;">D</span><span style="color:#5c92be;">P</span><span style="color:#a1c0d4;">T</span><span style="color:#f87e5d;">R</span>: <span style="color:#024376;">D</span>ifferentiable <span style="color:#5c92be;">P</span>oin<span style="color:#a1c0d4;">T</span> <span style="color:#f87e5d;">R</span>enderer</p>
+
 
 <!-- ```
  ____  ____ _____ ____  
