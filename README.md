@@ -1,4 +1,4 @@
-# <div style="text-align: center;"> <span style="color:#024376">D</span><span style="color:#5c92be">P</span><span style="color:#a1c0d4">T</span><span style="color:#f87e5d">R</span>: <span style="color:#024376">D</span>ifferentiable <span style="color:#5c92be">P</span>oin<span style="color:#a1c0d4">T</span> <span style="color:#f87e5d">R</span>enderer </div>
+# <p style="text-align: center;"> <span style="color:#024376">D</span><span style="color:#5c92be">P</span><span style="color:#a1c0d4">T</span><span style="color:#f87e5d">R</span>: <span style="color:#024376">D</span>ifferentiable <span style="color:#5c92be">P</span>oin<span style="color:#a1c0d4">T</span> <span style="color:#f87e5d">R</span>enderer </p>
 <!-- ```
  ____  ____ _____ ____  
 |  _ \|  _ \_   _|  _ \ 
@@ -6,19 +6,18 @@
 | |_| |  __/ | | |  _ < 
 |____/|_|    |_| |_| \_\
 ``` -->
-<div style="text-align: center;">
-    <p>
-        <a href="">🌐 <b> Project Page </b> </a> | 
-        <a href="">📰 <b> Document </b> </a>
-    </p>
-</div>
+<p align="center">
+    <a href="">🌐 <b> Project Page </b> </a> | 
+    <a href="">📰 <b> Document </b> </a>
+</p>
+
 
 The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serves as the backend of [POINTRIX]() and is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
 
-<div style="display: flex; justify-content: space-around;">
-    <img src="media/DPTR.png" alt="dptr" style="width: 48%;">
-    <img src="media/tutorial.gif" alt="dptr" style="width: 48%;">
-</div>
+<p align="center">
+  <img src="media/DPTR.png" alt="dptr" style="width: 48%;">
+  <img src="media/tutorial.gif" alt="dptr" style="width: 48%;">
+</p>
 
 The logo of [DPTR](https://www.bing.com/images/create/an-icon-for-dpt-renderer2c-differentiable-point-ren/1-65a7c65dbd784e72913e5d80f9668a52?id=eJ9o1BS%2bV5BbgdDmGXi7jg%3d%3d&view=detailv2&idpp=genimg&noidpclose=1&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/).
 
