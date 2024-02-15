@@ -1,5 +1,6 @@
 # <p align="center"><span style="color:#024376;">D</span><span style="color:#5c92be;">P</span><span style="color:#a1c0d4;">T</span><span style="color:#f87e5d;">R</span>: <span style="color:#024376;">D</span>ifferentiable <span style="color:#5c92be;">P</span>oin<span style="color:#a1c0d4;">T</span> <span style="color:#f87e5d;">R</span>enderer</p>
 <!-- ```
+Differentiable PoinT Renderer, backend for POINTRIX.
  ____  ____ _____ ____  
 |  _ \|  _ \_   _|  _ \ 
 | | | | |_) || | | |_) |

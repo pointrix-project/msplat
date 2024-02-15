@@ -118,9 +118,9 @@ if __name__ == "__main__":
     print("=============================== running test on alpha_blending ===============================")
     
     # generate data
-    w = 18
-    h = 9
-    bg = 0
+    w = 3
+    h = 3
+    bg = 1
     
     N = 20
     

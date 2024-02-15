@@ -225,6 +225,11 @@ alphaBlendingBackwardCUDAKernel(
             }
             dL_dalpha *= T;
             last_alpha = alpha;
+
+            float bg_dot_dpixel = 0;
+            for (int ch = 0; ch < c_num; ch++)
+                bg_dot_dpixel += bg * dL_dpixel[ch];
+            dL_dalpha += (-T_final / (1.f - alpha)) * bg_dot_dpixel;
             
             const float dL_dG = opac * dL_dalpha;
             const float2 dG_dvec = {
