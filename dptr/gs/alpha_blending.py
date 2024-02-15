@@ -71,10 +71,10 @@ class _AlphaBlending(torch.autograd.Function):
             ncontrib
         )
         
-        return render_feature, final_T, ncontrib
+        return render_feature
 
     @staticmethod
-    def backward(ctx, dL_drendered, dL_dT, dL_dncontrib):
+    def backward(ctx, dL_drendered):
         W = ctx.W
         H = ctx.H
         bg = ctx.bg

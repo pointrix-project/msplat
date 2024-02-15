@@ -63,7 +63,7 @@ def alpha_blending_torch_impl(
             final_idx[i, j] = last_contributor
             out_img[i, j] += T * bg
 
-    return out_img.permute(2, 0, 1), final_Ts, final_idx
+    return out_img.permute(2, 0, 1)
 
 
 def get_touched_tiles(uv, radius, W, H):
@@ -160,11 +160,7 @@ if __name__ == "__main__":
     feature1 = feature.clone().requires_grad_()
     feature2 = feature.clone().requires_grad_()
     
-    (
-        render_feature_torch, 
-        final_T_torch, 
-        ncontrib_torch
-    ) = alpha_blending_torch_impl(
+    render_feature_torch = alpha_blending_torch_impl(
         uv1,
         conic1,
         opacity1,
@@ -176,11 +172,7 @@ if __name__ == "__main__":
         h
     )
     
-    (
-        render_feature_cuda, 
-        final_T_cuda, 
-        ncontrib_cuda
-    ) = gs.alpha_blending(
+    render_feature_cuda = gs.alpha_blending(
         uv2, 
         conic2, 
         opacity2, 
@@ -193,8 +185,6 @@ if __name__ == "__main__":
     )
     
     torch.testing.assert_close(render_feature_torch, render_feature_cuda)
-    torch.testing.assert_close(final_T_torch, final_T_cuda)
-    torch.testing.assert_close(ncontrib_torch, ncontrib_cuda)
     print("Forward pass.")
     
     print("Backward: ")
@@ -209,37 +199,4 @@ if __name__ == "__main__":
     torch.testing.assert_close(opacity1.grad, opacity2.grad)
     torch.testing.assert_close(feature1.grad, feature2.grad)
     print("Backward pass.")
-    
-    # grid = int(np.ceil(np.sqrt(render_feature_cuda.shape[0])))
-
-    # for i in range(grid * grid):
-    #     if i >= render_feature_cuda.shape[0]:
-    #         break
-    #     plt.subplot(grid, grid, i+1)
-    #     plt.imshow(render_feature_cuda[i].detach().cpu().numpy())
-    # plt.savefig("render_feature_cuda.png")
-    
-    # plt.clf()
-    # plt.imshow(final_T_cuda.detach().cpu().numpy())
-    # plt.savefig("final_T_cuda.png")
-    
-    # plt.clf()
-    # plt.imshow(ncontrib_cuda.detach().cpu().numpy())
-    # plt.savefig("ncontrib_cuda.png")
-    
-    # plt.clf()
-    # for i in range(grid * grid):
-    #     if i >= render_feature_torch.shape[0]:
-    #         break
-    #     plt.subplot(grid, grid, i+1)
-    #     plt.imshow(render_feature_torch[i].detach().cpu().numpy())
-    # plt.savefig("render_feature_torch.png")
-    
-    # plt.clf()
-    # plt.imshow(final_T_torch.detach().cpu().numpy())
-    # plt.savefig("final_T_torch.png")
-    
-    # plt.clf()
-    # plt.imshow(ncontrib_torch.detach().cpu().numpy())
-    # plt.savefig("ncontrib_torch.png")
     

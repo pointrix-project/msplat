@@ -75,9 +75,8 @@ def fov2focal(fov, pixels):
     return pixels / (2 * math.tan(fov / 2))
 
 if __name__ == "__main__":
-    # seed = 3
+    # seed = 121
     # torch.manual_seed(seed)
-    # torch.set_printoptions(precision=10)
     
     iters = 10
     N = 200000

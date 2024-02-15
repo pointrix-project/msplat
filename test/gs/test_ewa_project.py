@@ -139,9 +139,8 @@ def ndc_to_pixel(ndc, size):
     return ((ndc + 1.0) * size - 1.0) * 0.5
 
 if __name__ == "__main__":
-    seed = 121
-    torch.manual_seed(seed)
-    torch.set_printoptions(precision=10)
+    # seed = 121
+    # torch.manual_seed(seed)
     
     iters = 1
     N = 10000
