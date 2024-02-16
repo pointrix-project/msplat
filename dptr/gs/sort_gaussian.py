@@ -35,31 +35,31 @@ def sort_gaussian(
     -------
     idx_sorted : Float[Tensor, "Nid"]
         Indices of Gaussian points sorted according to [tile_id|depth].
-    tile_bins : 
+    tile_range : 
         Range of indices in idx_sorted for Gaussians participating in alpha blending in each tile.
     """
     # accumulate intersections of gaussians
-    cum_tiles_hit = torch.cumsum(tiles, dim=0, dtype=torch.int32)
+    tiles = torch.cumsum(tiles, dim=0, dtype=torch.int32)
     
     # compute gaussian keys for sorting
     (
-        isect_idx, 
+        gaussian_key, 
         gaussian_idx
     ) = _C.compute_gaussian_key(
         uv,
         depth,
         W, H,
         radius,
-        cum_tiles_hit
+        tiles
     )
 
-    isect_idx_sorted, sorted_indices = torch.sort(isect_idx)
-    idx_sorted = torch.gather(gaussian_idx, 0, sorted_indices)
+    key_sorted, indices = torch.sort(gaussian_key)
+    idx_sorted = torch.gather(gaussian_idx, 0, indices)
    
-    tile_bins = _C.compute_tile_gaussian_range(
+    tile_range = _C.compute_tile_gaussian_range(
         W, H, 
-        cum_tiles_hit,
-        isect_idx_sorted
+        tiles,
+        key_sorted
     )
     
-    return idx_sorted, tile_bins
+    return idx_sorted, tile_range

@@ -38,12 +38,12 @@ __global__ void computeSHForwardCUDAKernel(
     const glm::vec3* shs,
     const int deg,
     const glm::vec3* dirs,
-    const bool* visibility_status,
+    const bool* visible,
     glm::vec3* colors, 
     bool* clamped)
 {
     auto idx = cg::this_grid().thread_rank();
-    if (idx >= P || !visibility_status[idx])
+    if (idx >= P || !visible[idx])
         return;
 
     glm::vec3 dir = dirs[idx];
@@ -95,14 +95,14 @@ __global__ void computeSHBackwardCUDAKernel(
     const glm::vec3* shs,
     const int deg,
     const glm::vec3* dirs,
-    const bool* visibility_status,
+    const bool* visible,
     const bool* clamped, 
     const glm::vec3* dL_dcolors, 
     glm::vec3* dL_dshs,
     glm::vec3* dL_ddirs)
 {
     auto idx = cg::this_grid().thread_rank();
-    if (idx >= P || !visibility_status[idx])
+    if (idx >= P || !visible[idx])
         return;
 
     glm::vec3 dir = dirs[idx];
@@ -212,7 +212,7 @@ void computeSHForwardCUDA(
     const float* shs,
     const int deg,
     const float* dirs,
-    const bool* visibility_status,
+    const bool* visible,
     float* colors,
     bool* clamped
 ){
@@ -221,7 +221,7 @@ void computeSHForwardCUDA(
         (const glm::vec3*)shs, 
         deg, 
         (const glm::vec3*)dirs, 
-        visibility_status,
+        visible,
         (glm::vec3*)colors,
         clamped
     );
@@ -232,7 +232,7 @@ void computeSHBackwardCUDA(
     const float* shs,
     const int deg,
     const float* dirs,
-    const bool* visibility_status,
+    const bool* visible,
     const bool* clamped,
     const float* dL_dcolors,
     float* dL_dshs,
@@ -243,7 +243,7 @@ void computeSHBackwardCUDA(
         (const glm::vec3*)shs, 
         deg,
         (const glm::vec3*)dirs, 
-        visibility_status,
+        visible,
         clamped,
         (glm::vec3*)dL_dcolors,
         (glm::vec3*)dL_dshs,
@@ -257,11 +257,11 @@ computeSHForward(
     const torch::Tensor& shs,
     const int degree,
     const torch::Tensor& view_dirs,
-    const torch::Tensor& visibility_status
+    const torch::Tensor& visible
 ){
     CHECK_INPUT(shs);
     CHECK_INPUT(view_dirs);
-    CHECK_INPUT(visibility_status);
+    CHECK_INPUT(visible);
 
     const int P = shs.size(0);
     auto float_opts = shs.options().dtype(torch::kFloat32);
@@ -276,7 +276,7 @@ computeSHForward(
             (const glm::vec3*)shs.contiguous().data_ptr<float>(), 
             degree, 
             (const glm::vec3*)view_dirs.contiguous().data_ptr<float>(), 
-            visibility_status.contiguous().data_ptr<bool>(),
+            visible.contiguous().data_ptr<bool>(),
             (glm::vec3*)colors.data_ptr<float>(),
             clamped.data_ptr<bool>()
         );
@@ -290,13 +290,13 @@ computeSHBackward(
     const torch::Tensor& shs,
     const int degree,
     const torch::Tensor& view_dirs,
-    const torch::Tensor& visibility_status,
+    const torch::Tensor& visible,
     const torch::Tensor& clamped,
     const torch::Tensor& dL_dcolors
 ){
     CHECK_INPUT(shs);
     CHECK_INPUT(view_dirs);
-    CHECK_INPUT(visibility_status);
+    CHECK_INPUT(visible);
     CHECK_INPUT(dL_dcolors);
 
     const int P = shs.size(0);
@@ -312,7 +312,7 @@ computeSHBackward(
             (const glm::vec3*)shs.contiguous().data_ptr<float>(), 
             degree,
             (const glm::vec3*)view_dirs.contiguous().data_ptr<float>(), 
-            visibility_status.contiguous().data_ptr<bool>(),
+            visible.contiguous().data_ptr<bool>(),
             clamped.contiguous().data_ptr<bool>(),
             (glm::vec3*)dL_dcolors.contiguous().data_ptr<float>(),
             (glm::vec3*)dL_dshs.data_ptr<float>(),

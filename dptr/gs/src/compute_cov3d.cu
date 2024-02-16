@@ -155,18 +155,18 @@ __device__ void compute_cov3_backward(
  * @param[in] P                   Number of points to process.
  * @param[in] scales              Array of 3D scales for each point.
  * @param[in] uquats              Array of 3D rotations (unit quaternions) for each point.
- * @param[in] visibility_status   Array indicating the visibility status of each point.
+ * @param[in] visible   Array indicating the visibility status of each point.
  * @param[out] cov3Ds             Output array for storing the computed 3D covariance vectors. 
  */
 __global__ void computeCov3DForwardCUDAKernel(
     const int P,
     const glm::vec3* scales,
     const glm::vec4* uquats,
-    const bool* visibility_status,
+    const bool* visible,
     float* cov3Ds)
 {
     auto idx = cg::this_grid().thread_rank();
-    if (idx >= P || !visibility_status[idx])
+    if (idx >= P || !visible[idx])
         return;
 
     compute_cov3d_forward(
@@ -182,7 +182,7 @@ __global__ void computeCov3DForwardCUDAKernel(
  * @param[in] P                    Number of points to process.
  * @param[in] scales               Array of 3D scales for each point.
  * @param[in] uquats               Array of 3D rotations (unit quaternions) for each point.
- * @param[in] visibility_status    Array indicating the visibility status of each point.
+ * @param[in] visible    Array indicating the visibility status of each point.
  * @param[in] dL_dcov3Ds           Gradients of the loss with respect to the 3D covariance matrices.
  * @param[out] dL_dscales          Output array for storing the gradients of the loss with respect to scales.
  * @param[out] dL_duquats          Output array for storing the gradients of the loss with respect to unit quaternions.
@@ -191,13 +191,13 @@ __global__ void computeCov3DBackwardCUDAKernel(
     const int P,
     const glm::vec3* scales,
     const glm::vec4* uquats,
-    const bool* visibility_status,
+    const bool* visible,
     const float* dL_dcov3Ds,
     glm::vec3* dL_dscales,
     glm::vec4* dL_duquats)
 {
     auto idx = cg::this_grid().thread_rank();
-    if (idx >= P || !visibility_status[idx])
+    if (idx >= P || !visible[idx])
         return;
 
     compute_cov3_backward(
@@ -214,12 +214,12 @@ torch::Tensor
 computeCov3DForward(
   const torch::Tensor& scales,
   const torch::Tensor& uquats,
-  const torch::Tensor& visibility_status
+  const torch::Tensor& visible
 ){
 
     CHECK_INPUT(scales);
     CHECK_INPUT(uquats);
-    CHECK_INPUT(visibility_status);
+    CHECK_INPUT(visible);
 
     const int P = scales.size(0);
     auto float_opts = scales.options().dtype(torch::kFloat32);
@@ -230,7 +230,7 @@ computeCov3DForward(
             P, 
             (glm::vec3*)scales.contiguous().data_ptr<float>(), 
             (glm::vec4*)uquats.contiguous().data_ptr<float>(), 
-            visibility_status.contiguous().data_ptr<bool>(),
+            visible.contiguous().data_ptr<bool>(),
             cov3Ds.data_ptr<float>()
         );
     }
@@ -244,13 +244,13 @@ std::tuple<torch::Tensor, torch::Tensor>
 computeCov3DBackward(
     const torch::Tensor& scales,
 	const torch::Tensor& uquats,
-	const torch::Tensor& visibility_status,
+	const torch::Tensor& visible,
 	const torch::Tensor& dL_dcov3Ds
 ){
 
     CHECK_INPUT(scales);
     CHECK_INPUT(uquats);
-    CHECK_INPUT(visibility_status);
+    CHECK_INPUT(visible);
     CHECK_INPUT(dL_dcov3Ds);
 
     const int P = scales.size(0);
@@ -264,7 +264,7 @@ computeCov3DBackward(
             P, 
             (glm::vec3*)scales.contiguous().data_ptr<float>(), 
             (glm::vec4*)uquats.contiguous().data_ptr<float>(), 
-            visibility_status.contiguous().data_ptr<bool>(),
+            visible.contiguous().data_ptr<bool>(),
             dL_dcov3Ds.contiguous().data_ptr<float>(), 
             (glm::vec3*)dL_dscales.data_ptr<float>(), 
             (glm::vec4*)dL_duquats.data_ptr<float>()

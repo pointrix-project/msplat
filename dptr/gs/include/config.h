@@ -1,6 +1,6 @@
 /**
  * @file config.h
- * @brief 
+ * @brief Config for Tile-based rasterization.
  */
 # pragma one
 

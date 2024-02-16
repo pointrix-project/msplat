@@ -88,19 +88,19 @@ if __name__ == "__main__":
             camparam,
             W, H)
         
-        visibility_status = depth != 0
+        visible = depth != 0
         
         # compute cov3d
         cov3d = gs.compute_cov3d(
             gaussians.get_attribute("scale"), 
             gaussians.get_attribute("rotate"), 
-            visibility_status)
+            visible)
         
         # ewa project
         (
             conic, 
             radius, 
-            tiles
+            tiles_touched
         ) = gs.ewa_project(
             gaussians.get_attribute("xyz"),
             cov3d, 
@@ -108,19 +108,19 @@ if __name__ == "__main__":
             camparam,
             uv,
             W, H,
-            visibility_status
+            visible
         )
         
         # sort
         (
-            idx_sorted, 
-            tile_bins
+            gaussian_ids_sorted, 
+            tile_range
         ) = gs.sort_gaussian(
             uv, 
             depth, 
             W, H, 
             radius, 
-            tiles
+            tiles_touched
         )
         
         # alpha blending
@@ -129,8 +129,8 @@ if __name__ == "__main__":
             conic, 
             gaussians.get_attribute("opacity"), 
             gaussians.get_attribute("rgb"), 
-            idx_sorted, 
-            tile_bins, 
+            gaussian_ids_sorted, 
+            tile_range, 
             bg, 
             W, 
             H
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         
         gaussians.step()
         
-        valid_num = torch.sum(visibility_status.float())
+        valid_num = torch.sum(visible.float())
         progress_bar.set_postfix({"Loss": f"{loss:.{7}f}", "valid_num": f"{valid_num}"})
         progress_bar.update(1)
         

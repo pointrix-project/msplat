@@ -12,7 +12,7 @@ def alpha_blending_torch_impl(
     opacity,
     feature,
     idx_sorted,
-    tile_bins,
+    tile_range,
     bg,
     W, H
 ):
@@ -24,8 +24,8 @@ def alpha_blending_torch_impl(
     for i in range(H):
         for j in range(W):
             tile_id = (i // 16) * math.ceil(W / 16) + (j // 16)
-            tile_bin_start = tile_bins[tile_id, 0]
-            tile_bin_end = tile_bins[tile_id, 1]
+            tile_bin_start = tile_range[tile_id, 0]
+            tile_bin_end = tile_range[tile_id, 1]
             
             T = 1.0
             last_contributor = 0
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     # sort
     (
         idx_sorted, 
-        tile_bins
+        tile_range
     ) = gs.sort_gaussian(
         uv, 
         depth, 
@@ -166,7 +166,7 @@ if __name__ == "__main__":
         opacity1,
         feature1,
         idx_sorted,
-        tile_bins,
+        tile_range,
         bg,
         w, 
         h
@@ -178,7 +178,7 @@ if __name__ == "__main__":
         opacity2, 
         feature2, 
         idx_sorted, 
-        tile_bins, 
+        tile_range, 
         bg, 
         w, 
         h

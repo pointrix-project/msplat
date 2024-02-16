@@ -10,7 +10,7 @@ def compute_sh(
     shs: Float[Tensor, "P D C"],
     degree: int,
     view_dirs: Float[Tensor, "P 3"],
-    visibility_status: Bool[Tensor, "P 1"] = None
+    visible: Bool[Tensor, "P 1"] = None
 )->Float[Tensor, "P 3"]:
     """
     Compute RGB color from Spherical Harmonics(SHs).
@@ -23,7 +23,7 @@ def compute_sh(
         The degree of SHs.
     view_dirs : Float[Tensor, "P 3"]
         Normalized view direction.
-    visibility_status : Bool[Tensor, "P 1"], optional
+    visible : Bool[Tensor, "P 1"], optional
         The visibility status of each point, by default None
 
     Returns
@@ -31,14 +31,14 @@ def compute_sh(
     rgb_color : Float[Tensor, "P 3"]
         The view-dependent RGB color.
     """
-    if visibility_status is None:
-        visibility_status = torch.ones_like(shs[:, 0, 0], dtype=torch.bool)
+    if visible is None:
+        visible = torch.ones_like(shs[:, 0, 0], dtype=torch.bool)
     
     return _ComputeSH.apply(
         shs,
         degree,
         view_dirs,
-        visibility_status
+        visible
     )
     
 
@@ -49,7 +49,7 @@ class _ComputeSH(torch.autograd.Function):
         shs,
         degree,
         view_dirs,
-        visibility_status
+        visible
     ):
         
         (
@@ -59,7 +59,7 @@ class _ComputeSH(torch.autograd.Function):
             shs,
             degree,
             view_dirs,
-            visibility_status
+            visible
         )
         
         # save variables for backward
@@ -67,7 +67,7 @@ class _ComputeSH(torch.autograd.Function):
         ctx.save_for_backward(
             shs, 
             view_dirs, 
-            visibility_status,
+            visible,
             clamped
         )
         
@@ -83,7 +83,7 @@ class _ComputeSH(torch.autograd.Function):
         (
             shs, 
             view_dirs, 
-            visibility_status, 
+            visible, 
             clamped
         ) = ctx.saved_tensors
         
@@ -94,7 +94,7 @@ class _ComputeSH(torch.autograd.Function):
             shs,
             degree,
             view_dirs,
-            visibility_status,
+            visible,
             clamped,
             dL_dcolor
         )
@@ -106,7 +106,7 @@ class _ComputeSH(torch.autograd.Function):
             None,
             # loss gradient w.r.t view_dirs
             dL_dvdirs,
-            # loss gradient w.r.t visibility_status
+            # loss gradient w.r.t visible
             None,
         )
 

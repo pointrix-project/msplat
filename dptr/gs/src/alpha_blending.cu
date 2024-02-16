@@ -23,7 +23,7 @@ alphaBlendingForwardCUDAKernel(
     const float* __restrict__ opacity,
     const float* __restrict__ feature,
     const int* __restrict__ idx_sorted,
-    const int2* __restrict__ tile_bins,
+    const int2* __restrict__ tile_range,
     const float bg, const int C,
     const int W, const int H, 
     float* __restrict__ final_T,
@@ -45,7 +45,7 @@ alphaBlendingForwardCUDAKernel(
     bool inside = pix.x < W && pix.y < H;
     bool done = !inside;
 
-    int2 range = tile_bins[tile_id];
+    int2 range = tile_range[tile_id];
     const int rounds = ((range.y - range.x + BLOCK_SIZE - 1) / BLOCK_SIZE);
     int toDo = range.y - range.x;
 
@@ -126,7 +126,7 @@ alphaBlendingBackwardCUDAKernel(
     const float* __restrict__ opacity,
     const float* __restrict__ feature,
     const int* __restrict__ idx_sorted,
-    const int2* __restrict__ tile_bins,
+    const int2* __restrict__ tile_range,
     const float bg, const int C,
     const int W, const int H,
     float* __restrict__ final_T,
@@ -151,7 +151,7 @@ alphaBlendingBackwardCUDAKernel(
     bool inside = pix.x < W && pix.y < H;
     bool done = !inside;
 
-    int2 range = tile_bins[tile_id];
+    int2 range = tile_range[tile_id];
     const int rounds = ((range.y - range.x + BLOCK_SIZE - 1) / BLOCK_SIZE);
     int toDo = range.y - range.x;
 
@@ -258,7 +258,7 @@ alphaBlendingForward(
     const torch::Tensor& opacity,
     const torch::Tensor& feature,
     const torch::Tensor& idx_sorted,
-    const torch::Tensor& tile_bins,
+    const torch::Tensor& tile_range,
     const float bg,
     const int W, const int H
 ){
@@ -267,7 +267,7 @@ alphaBlendingForward(
     CHECK_INPUT(opacity);
     CHECK_INPUT(feature);
     CHECK_INPUT(idx_sorted);
-    CHECK_INPUT(tile_bins);
+    CHECK_INPUT(tile_range);
 
     const int P = feature.size(0);
     const int C = feature.size(1);
@@ -297,7 +297,7 @@ alphaBlendingForward(
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 idx_sorted.contiguous().data_ptr<int>(),
-                (int2*)tile_bins.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
@@ -313,7 +313,7 @@ alphaBlendingForward(
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 idx_sorted.contiguous().data_ptr<int>(),
-                (int2*)tile_bins.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
@@ -329,7 +329,7 @@ alphaBlendingForward(
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 idx_sorted.contiguous().data_ptr<int>(),
-                (int2*)tile_bins.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
@@ -345,7 +345,7 @@ alphaBlendingForward(
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 idx_sorted.contiguous().data_ptr<int>(),
-                (int2*)tile_bins.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
@@ -361,7 +361,7 @@ alphaBlendingForward(
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 idx_sorted.contiguous().data_ptr<int>(),
-                (int2*)tile_bins.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
@@ -377,7 +377,7 @@ alphaBlendingForward(
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
                 idx_sorted.contiguous().data_ptr<int>(),
-                (int2*)tile_bins.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
                 ncontrib.data_ptr<int>(),
@@ -398,7 +398,7 @@ alphaBlendingBackward(
     const torch::Tensor& opacity,
     const torch::Tensor& feature,
     const torch::Tensor& idx_sorted,
-    const torch::Tensor& tile_bins,
+    const torch::Tensor& tile_range,
     const float bg,
     const int W, const int H,
     const torch::Tensor &final_T,
@@ -410,7 +410,7 @@ alphaBlendingBackward(
     CHECK_INPUT(opacity);
     CHECK_INPUT(feature);
     CHECK_INPUT(idx_sorted);
-    CHECK_INPUT(tile_bins);
+    CHECK_INPUT(tile_range);
     CHECK_INPUT(final_T);
     CHECK_INPUT(ncontrib);
     CHECK_INPUT(dL_drendered);
@@ -437,7 +437,7 @@ alphaBlendingBackward(
         opacity.contiguous().data_ptr<float>(),
         feature_permute.contiguous().data_ptr<float>(),
         idx_sorted.contiguous().data_ptr<int>(),
-        (int2*)tile_bins.contiguous().data_ptr<int>(),
+        (int2*)tile_range.contiguous().data_ptr<int>(),
         bg, C, W, H,
         final_T.contiguous().data_ptr<float>(),
         ncontrib.contiguous().data_ptr<int>(),

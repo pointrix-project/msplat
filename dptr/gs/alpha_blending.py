@@ -66,7 +66,7 @@ class _AlphaBlending(torch.autograd.Function):
         opacity,
         feature,
         idx_sorted,
-        tile_bins,
+        tile_range,
         bg, 
         W, 
         H):
@@ -81,7 +81,7 @@ class _AlphaBlending(torch.autograd.Function):
             opacity,
             feature,
             idx_sorted,
-            tile_bins,
+            tile_range,
             bg,
             W,
             H
@@ -96,7 +96,7 @@ class _AlphaBlending(torch.autograd.Function):
             opacity,
             feature,
             idx_sorted,
-            tile_bins,
+            tile_range,
             final_T,
             ncontrib
         )
@@ -115,7 +115,7 @@ class _AlphaBlending(torch.autograd.Function):
             opacity,
             feature,
             idx_sorted,
-            tile_bins,
+            tile_range,
             final_T,
             ncontrib
         ) = ctx.saved_tensors
@@ -131,7 +131,7 @@ class _AlphaBlending(torch.autograd.Function):
             opacity,
             feature,
             idx_sorted,
-            tile_bins,
+            tile_range,
             bg,
             W,
             H,
@@ -151,7 +151,7 @@ class _AlphaBlending(torch.autograd.Function):
             dL_dfeature,
             # grads w.r. idx_sorted,
             None,
-            # grads w.r. tile_bins,
+            # grads w.r. tile_range,
             None,
             # grads w.r. bg, 
             None,

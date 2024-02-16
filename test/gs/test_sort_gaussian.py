@@ -37,11 +37,11 @@ if __name__ == "__main__":
     radius[3, 0] = 1
     tiles[3, 0] = 1
 
-    idx_sorted, tile_bins = gs.sort_gaussian(uv, depth, w, h, radius, tiles)
+    idx_sorted, tile_range = gs.sort_gaussian(uv, depth, w, h, radius, tiles)
 
     target_idx_sorted = torch.tensor([0, 2, 2, 1, 3], device='cuda:0', dtype=torch.int32)
-    target_tile_bins = torch.tensor([[0, 2], [2, 5]], device='cuda:0', dtype=torch.int32)
+    target_tile_range = torch.tensor([[0, 2], [2, 5]], device='cuda:0', dtype=torch.int32)
     
     torch.testing.assert_close(idx_sorted, target_idx_sorted)
-    torch.testing.assert_close(tile_bins, target_tile_bins)
+    torch.testing.assert_close(tile_range, target_tile_range)
     print(" Pass.")

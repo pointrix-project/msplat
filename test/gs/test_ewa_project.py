@@ -15,7 +15,7 @@ def ewa_project_torch_impl(
     camparam,
     xy,
     W, H,
-    visibility_status
+    visible
 ):
     viewmat = viewmat.transpose(-2, -1)
     
@@ -96,7 +96,7 @@ def ewa_project_torch_impl(
     tiles = tiles_tmp[..., 0] * tiles_tmp[..., 1]
     
     mask = torch.logical_and(tiles != 0, det_mask)
-    mask = torch.logical_and(visibility_status, mask)
+    mask = torch.logical_and(visible, mask)
     
     conic = torch.nan_to_num(conic)
     radius = torch.nan_to_num(radius)
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         camparam,
         W, H)
 
-    visibility_status = (depth != 0).squeeze(-1)
+    visible = (depth != 0).squeeze(-1)
 
     xyz1 = xyz.clone().requires_grad_()
     xyz2 = xyz.clone().requires_grad_()
@@ -213,7 +213,7 @@ if __name__ == "__main__":
             camparam,
             uv,
             W, H,
-            visibility_status
+            visible
         )
     torch.cuda.synchronize()
     print("  pytorch runtime: ", (time.time() - t) / iters, " s")
@@ -231,7 +231,7 @@ if __name__ == "__main__":
             camparam,
             uv,
             W, H,
-            visibility_status
+            visible
         )
     
     torch.cuda.synchronize()

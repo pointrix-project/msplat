@@ -20,13 +20,13 @@ __global__ void EWAProjectForwardCUDAKernel(
     const float* camparam,
     const float2* uv,
     const dim3 grid,
-    const bool* visibility_status,
+    const bool* visible,
     float3* conic,
     int* radius,
     int* tiles
 ){
     auto idx = cg::this_grid().thread_rank();
-    if (idx >= P || !visibility_status[idx])
+    if (idx >= P || !visible[idx])
         return;
 
     float fx = camparam[0];
@@ -188,14 +188,14 @@ EWAProjectForward(
     const torch::Tensor& camparam,
     const torch::Tensor& uv,
     const int W, const int H,
-    const torch::Tensor &visibility_status
+    const torch::Tensor &visible
 ){
     CHECK_INPUT(xyz);
     CHECK_INPUT(cov3d);
     CHECK_INPUT(viewmat);
     CHECK_INPUT(camparam);
     CHECK_INPUT(uv);
-    CHECK_INPUT(visibility_status);
+    CHECK_INPUT(visible);
 
     const int P = xyz.size(0);
     auto float_opts = xyz.options().dtype(torch::kFloat32);
@@ -216,7 +216,7 @@ EWAProjectForward(
             camparam.contiguous().data_ptr<float>(),
             (float2*)uv.contiguous().data_ptr<float>(),
             tile_grid,
-            visibility_status.contiguous().data_ptr<bool>(),
+            visible.contiguous().data_ptr<bool>(),
             (float3*)conic.data_ptr<float>(),
             radius.data_ptr<int>(),
             tiles.data_ptr<int>()

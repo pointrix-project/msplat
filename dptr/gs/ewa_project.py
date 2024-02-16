@@ -12,7 +12,7 @@ def ewa_project(
     camparam: Float[Tensor, "4"],
     uv: Float[Tensor, "P 4"],
     W: int, H: int,
-    visibility_status: Bool[Tensor, "P 1"] = None
+    visible: Bool[Tensor, "P 1"] = None
 )->Tuple:
     """
     Project 3D Gaussians to 2D planar Gaussian through elliptical weighted average(EWA).
@@ -33,21 +33,21 @@ def ewa_project(
         Width of the image.
     H : int
         Height of the image.
-    visibility_status : Bool[Tensor, &quot;P 1&quot;], optional
+    visible : Bool[Tensor, "P 1"], optional
         The visibility status of each point, by default None
 
     Returns
     -------
     conic : Float[Tensor, "P 3"]
         The upper-right corner of the 2D covariance matrices, stored in a vector.
-    radius : float
+    radius : Int[Tensor, "P 1"]
         Radius of the 2D planar Gaussian on the image.
-    tiles : 
+    tiles : Int[Tensor, "P 1"] 
         Number of tiles covered by 2D planar Gaussians on the image.
     """
     
-    if visibility_status is None:
-        visibility_status = torch.ones_like(uv[:, 0], dtype=torch.bool)
+    if visible is None:
+        visible = torch.ones_like(uv[:, 0], dtype=torch.bool)
         
     return _EWAProject.apply(
         xyz,
@@ -56,7 +56,7 @@ def ewa_project(
         camparam,
         uv,
         W, H,
-        visibility_status
+        visible
     )
 
 
@@ -70,7 +70,7 @@ class _EWAProject(torch.autograd.Function):
         camparam,
         uv,
         W, H,
-        visibility_status
+        visible
     ):
         
         (
@@ -84,7 +84,7 @@ class _EWAProject(torch.autograd.Function):
             camparam,
             uv,
             W, H,
-            visibility_status
+            visible
         )
         
         ctx.save_for_backward(
@@ -141,7 +141,7 @@ class _EWAProject(torch.autograd.Function):
             None,
             # loss gradient w.r.t H,
             None,
-            # loss gradient w.r.t visibility_status
+            # loss gradient w.r.t visible
             None,
         )
         

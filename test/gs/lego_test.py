@@ -269,13 +269,13 @@ if __name__ == "__main__":
             camparam,
             W, H)
         
-        visibility_status = depth != 0
+        visible = depth != 0
         
         # compute cov3d
         cov3d = gs.compute_cov3d(
             world.get_scaling, 
             world.get_rotation, 
-            visibility_status)
+            visible)
         
         # ewa project
         (
@@ -289,13 +289,13 @@ if __name__ == "__main__":
             camparam,
             uv,
             W, H,
-            visibility_status
+            visible
         )
         
         # sort
         (
             idx_sorted, 
-            tile_bins
+            tile_range
         ) = gs.sort_gaussian(
             uv, 
             depth, 
@@ -317,7 +317,7 @@ if __name__ == "__main__":
             world.get_opacity, 
             feature,
             idx_sorted, 
-            tile_bins, 
+            tile_range, 
             bg, 
             W, 
             H

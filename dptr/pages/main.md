@@ -115,13 +115,13 @@ Create a 3D Gaussian point cloud and optimize it!
             camparam,
             W, H)
         
-        visibility_status = depth != 0
+        visible = depth != 0
         
         # compute cov3d
         cov3d = gs.compute_cov3d(
             gaussians.get_attribute("scale"), 
             gaussians.get_attribute("rotate"), 
-            visibility_status)
+            visible)
         
         # ewa project
         (
@@ -135,13 +135,13 @@ Create a 3D Gaussian point cloud and optimize it!
             camparam,
             uv,
             W, H,
-            visibility_status
+            visible
         )
         
         # sort
         (
             idx_sorted, 
-            tile_bins
+            tile_range
         ) = gs.sort_gaussian(
             uv, 
             depth, 
@@ -161,7 +161,7 @@ Create a 3D Gaussian point cloud and optimize it!
             gaussians.get_attribute("opacity"), 
             gaussians.get_attribute("rgb"), 
             idx_sorted, 
-            tile_bins, 
+            tile_range, 
             bg, 
             W, 
             H
