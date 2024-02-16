@@ -1,4 +1,7 @@
-
+/**
+ * @file compute_sh.cu
+ * @brief  
+ */
 
 #include <utils.h>
 #include <glm/glm.hpp>
@@ -8,8 +11,6 @@
 
 namespace cg = cooperative_groups;
 
-
-// Spherical harmonics coefficients
 __device__ const float SH_C0 = 0.28209479177387814f;
 __device__ const float SH_C1 = 0.4886025119029199f;
 __device__ const float SH_C2[] = {
@@ -32,8 +33,6 @@ __device__ const float SH_C3[] = {
 __device__ const unsigned num_sh_bases[] = {1, 4, 9, 16};
 
 
-// Forward method for converting the input spherical harmonics
-// coefficients of each Gaussian to a simple RGB color.
 __global__ void computeSHForwardCUDAKernel(
     const int P,
     const glm::vec3* shs,
@@ -47,9 +46,6 @@ __global__ void computeSHForwardCUDAKernel(
     if (idx >= P || !visibility_status[idx])
         return;
 
-    // The implementation is loosely based on code for 
-    // "Differentiable Point-Based Radiance Fields for 
-    // Efficient View Synthesis" by Zhang et al. (2022)
     glm::vec3 dir = dirs[idx];
 
     const glm::vec3* sh = shs + idx * num_sh_bases[deg];
@@ -88,8 +84,6 @@ __global__ void computeSHForwardCUDAKernel(
     }
     result += 0.5f;
 
-    // RGB colors are clamped to positive values. If values are
-    // clamped, we need to keep track of this for the backward pass.
     clamped[3 * idx + 0] = (result.x < 0);
     clamped[3 * idx + 1] = (result.y < 0);
     clamped[3 * idx + 2] = (result.z < 0);
@@ -111,13 +105,10 @@ __global__ void computeSHBackwardCUDAKernel(
     if (idx >= P || !visibility_status[idx])
         return;
 
-    // Compute intermediate values, as it is done during forward
     glm::vec3 dir = dirs[idx];
 
     const glm::vec3* sh = shs + idx * num_sh_bases[deg];
 
-    // Use PyTorch rule for clamping: if clamping was applied,
-    // gradient becomes 0.
     glm::vec3 dL_dcolor = dL_dcolors[idx];
     dL_dcolor.x *= clamped[3 * idx + 0] ? 0 : 1;
     dL_dcolor.y *= clamped[3 * idx + 1] ? 0 : 1;
@@ -130,10 +121,8 @@ __global__ void computeSHBackwardCUDAKernel(
     float y = dir.y;
     float z = dir.z;
 
-    // Target location for this Gaussian to write SH gradients to
     glm::vec3* dL_dsh = dL_dshs + idx * num_sh_bases[deg];
 
-    // No tricks here, just high school-level calculus.
     float dRGBdsh0 = SH_C0;
     dL_dsh[0] = dRGBdsh0 * dL_dcolor;
     if (deg > 0)

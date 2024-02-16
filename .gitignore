@@ -7,3 +7,4 @@ build
 *.egg-info
 *.so
 data
+media/tutorial.gif

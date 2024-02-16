@@ -22,7 +22,7 @@ In this tutorial, we will demonstrate how to use DPTR to implement 3D Gaussian S
 
 ### Create a simple colorful 3D Gaussian class
 First, we create a simplified colorful 3D Gaussian point cloud. The attributes we set include 3D position, scale, rotation, opacity, and RGB color, all of which are randomly initialized.
-```[python]
+```python
 class SimpleGaussian:
     def __init__(self, num_points=100000):
         
@@ -37,7 +37,7 @@ class SimpleGaussian:
 ```
 
 Next, we set activation functions for each attribute to ensure that they always remain within reasonable bounds. For the scale, which must be greater than 0, we use the exponential function. For the RGB color and opacity, which are within the range of [0, 1], we choose the sigmoid function. As for rotation, represented using unit quaternions where the magnitude must be 1, we use normalization.
-```[python]
+```python
         self._activations = {
             "scale": torch.exp,
             "rotate": torch.nn.functional.normalize,
@@ -47,7 +47,7 @@ Next, we set activation functions for each attribute to ensure that they always 
 ```
 
 To perform gradient-based optimization, we allow gradient computation for each attribute by setting *requires_grad_* to *true* and create an optimizer.
-```[python]
+```python
         for attribute_name in self._attributes.keys():
             self._attributes[attribute_name] = nn.Parameter(self._attributes[attribute_name]).requires_grad_(True)
         
@@ -55,14 +55,14 @@ To perform gradient-based optimization, we allow gradient computation for each a
 ```
 
 We encapsulate each backward step and gradient zeroing into a function.
-```[python]
+```python
     def step(self):
         self.optimizer.step()
         self.optimizer.zero_grad()
 ```
 
 Then, we need a function to retrieve the attributes of the 3D Gaussian, returning the corresponding activated attributes according to the name.
-```[python]
+```python
     def get_attribute(self, name):
         try:
             if name in self._activations.keys() and self._activations[name] is not None:
@@ -75,7 +75,7 @@ Then, we need a function to retrieve the attributes of the 3D Gaussian, returnin
 
 ### Read the target logo image
 Read the logo image, normalize it, and then convert it into a tensor with a shape of [C, H, W].
-```[python]
+```python
     image_file = "./media/DPTR.png"
     img = np.array(Image.open(image_file))
     img = img.astype(np.float32) / 255.0
@@ -86,7 +86,7 @@ Read the logo image, normalize it, and then convert it into a tensor with a shap
 
 ### Set a Camera
 In DPTR, the camera intrinsic parameters are represented by a tensor of shape [4], consisting of [fx, fy, cx, cy]. Here, fx and fy denote the focal lengths of the camera (in pixels), while cx and cy represent the offset of the principal point of the camera, relative to the center of the top-left pixel of the image.
-```[python]
+```python
     bg = 0
     fov_x = math.pi / 2.0
     fx = 0.5 * float(W) / math.tan(0.5 * fov_x)
@@ -100,7 +100,7 @@ In DPTR, the camera intrinsic parameters are represented by a tensor of shape [4
 
 ### Train
 Create a 3D Gaussian point cloud and optimize it!
-```[python]
+```python
     gaussians = SimpleGaussian(num_points=100000)
 
     max_iter = 7000
@@ -132,7 +132,7 @@ Create a 3D Gaussian point cloud and optimize it!
         (
             conic, 
             radius, 
-            tiles_touched
+            tiles
         ) = gs.ewa_project(
             gaussians.get_attribute("xyz"),
             cov3d, 
@@ -145,14 +145,14 @@ Create a 3D Gaussian point cloud and optimize it!
         
         # sort
         (
-            gaussian_ids_sorted, 
+            idx_sorted, 
             tile_bins
         ) = gs.sort_gaussian(
             uv, 
             depth, 
             W, H, 
             radius, 
-            tiles_touched
+            tiles
         )
         
         # alpha blending
@@ -165,7 +165,7 @@ Create a 3D Gaussian point cloud and optimize it!
             conic, 
             gaussians.get_attribute("opacity"), 
             gaussians.get_attribute("rgb"), 
-            gaussian_ids_sorted, 
+            idx_sorted, 
             tile_bins, 
             bg, 
             W, 
@@ -189,7 +189,7 @@ Create a 3D Gaussian point cloud and optimize it!
 ```
 
 We then save the results in the optimization process as a GIF image.
-```[python]
+```python
     frames = [Image.fromarray(frame) for frame in frames]
     out_dir = "media"
     os.makedirs(out_dir, exist_ok=True)
@@ -204,7 +204,7 @@ We then save the results in the optimization process as a GIF image.
 ```
 
 The complete code for this tutorial can be found in: "./tutorials/gs.py". And you could easily run it by:
-```[shell]
+```shell
 python tutorials/gs.py
 ```
 
@@ -212,4 +212,5 @@ python tutorials/gs.py
 - [ ] Further enhance interface user-friendliness.
 - [ ] Optimization on camera.
 - [ ] Higher order spherical harmonic.
+- [ ] Not only 3-channal SHs.
 - [ ] Spherical Gaussian.

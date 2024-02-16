@@ -1,12 +1,6 @@
 /**
  * @file compute_cov3d_kernel.cu
- * @author Jian Gao
- * @brief CUDA kernel to compute 3D covariance matrices.
- * @version 0.1
- * @date 2024-01-17
- * 
- * @copyright Copyright (c) 2024
- * 
+ * @brief CUDA kernel to compute 3D covariance matrices. 
  */
 
 #include <utils.h>

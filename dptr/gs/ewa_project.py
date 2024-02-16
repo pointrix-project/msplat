@@ -6,14 +6,45 @@ from jaxtyping import Float, Bool
 import dptr.gs._C as _C
 
 def ewa_project(
-    xyz,
-    cov3d,
-    viewmat,
-    camparam,
-    uv,
-    w, h,
-    visibility_status=None
-)->Tuple[Tensor, Tensor, Tensor]:
+    xyz: Float[Tensor, "P 3"],
+    cov3d: Float[Tensor, "P 6"],
+    viewmat: Float[Tensor, "4 4"],
+    camparam: Float[Tensor, "4"],
+    uv: Float[Tensor, "P 4"],
+    W: int, H: int,
+    visibility_status: Bool[Tensor, "P 1"] = None
+)->Tuple:
+    """
+    Project 3D Gaussians to 2D planar Gaussian through elliptical weighted average(EWA).
+
+    Parameters
+    ----------
+    xyz : Float[Tensor, "P 3"]
+        3D position for each point.
+    cov3d : Float[Tensor, "P 6"]
+        The upper-right corner of the 3D covariance matrices, stored in a vector.
+    viewmat : Float[Tensor, "4 4"]
+        The world to view transform matrix.
+    camparam : Float[Tensor, "4"]
+        The intrinsics of camera [fx, fy, cx, cy].
+    uv : Float[Tensor, "P 4"]
+        2D positions for each point in the image.
+    W : int
+        Width of the image.
+    H : int
+        Height of the image.
+    visibility_status : Bool[Tensor, &quot;P 1&quot;], optional
+        The visibility status of each point, by default None
+
+    Returns
+    -------
+    conic : Float[Tensor, "P 3"]
+        The upper-right corner of the 2D covariance matrices, stored in a vector.
+    radius : float
+        Radius of the 2D planar Gaussian on the image.
+    tiles : 
+        Number of tiles covered by 2D planar Gaussians on the image.
+    """
     
     if visibility_status is None:
         visibility_status = torch.ones_like(uv[:, 0], dtype=torch.bool)
@@ -24,7 +55,7 @@ def ewa_project(
         viewmat,
         camparam,
         uv,
-        w, h,
+        W, H,
         visibility_status
     )
 
@@ -38,21 +69,21 @@ class _EWAProject(torch.autograd.Function):
         viewmat,
         camparam,
         uv,
-        w, h,
+        W, H,
         visibility_status
     ):
         
         (
             conic,
-            radii,
-            touched_tiles
+            radius,
+            tiles
         ) = _C.ewa_project_forward(
             xyz,
             cov3d,
             viewmat,
             camparam,
             uv,
-            w, h,
+            W, H,
             visibility_status
         )
         
@@ -61,17 +92,17 @@ class _EWAProject(torch.autograd.Function):
             cov3d,
             viewmat,
             camparam,
-            radii
+            radius
         )
         
-        return conic, radii, touched_tiles
+        return conic, radius, tiles
     
     
     @staticmethod
     def backward(
         ctx,
         dL_dconic,
-        dL_dradii,
+        dL_dradius,
         dL_dtiles
     ):
         
@@ -80,7 +111,7 @@ class _EWAProject(torch.autograd.Function):
             cov3d,
             viewmat,
             camparam,
-            radii
+            radius
         ) = ctx.saved_tensors
         
         (
@@ -91,7 +122,7 @@ class _EWAProject(torch.autograd.Function):
             cov3d,
             viewmat,
             camparam,
-            radii,
+            radius,
             dL_dconic
         )
         

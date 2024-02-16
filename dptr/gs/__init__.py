@@ -12,5 +12,9 @@ __all__ = [
     "ewa_project",
     "sort_gaussian",
     "compute_sh",
-    "alpha_blending"
+    "alpha_blending",
+    "rasterization"
 ]
+
+def rasterization():
+    pass

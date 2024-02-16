@@ -7,33 +7,42 @@ import dptr.gs._C as _C
 
 
 def project_point(
-    xyz: Float[Tensor, "*batch 3"],
+    xyz: Float[Tensor, "P 3"],
     viewmat: Float[Tensor, "4 4"],
     projmat: Float[Tensor, "4 4"],
     camparam: Float[Tensor, "4"],
     W: int, H: int,
     nearest: float = 0.2,
     extent: float = 1.3
-)->Tuple[Tensor, Tensor]:
-    """_summary_
-    :param xyz: _description_
-    :type xyz: Float[Tensor, 
-    :param viewmat: _description_
-    :type viewmat: Float[Tensor, &quot;4 4&quot;]
-    :param projmat: _description_
-    :type projmat: Float[Tensor, &quot;4 4&quot;]
-    :param camparam: _description_
-    :type camparam: Float[Tensor, &quot;4&quot;]
-    :param W: _description_
-    :type W: int
-    :param H: _description_
-    :type H: int
-    :param nearest: _description_, defaults to 0.2
-    :type nearest: float, optional
-    :param extent: _description_, defaults to -1
-    :type extent: float, optional
-    :return: _description_
-    :rtype: Tuple[Tensor, Tensor]
+)->Tuple:
+    """
+    Project 3D points to the screen.
+
+    Parameters
+    ----------
+    xyz : Float[Tensor, "P 3"]
+        3D position for each point.
+    viewmat : Float[Tensor, "4 4"]
+        The world to view transform matrix.
+    projmat : Float[Tensor, "4 4"]
+        The world to screen transform matrix. 
+    camparam : Float[Tensor, "4"]
+        The intrinsics of camera [fx, fy, cx, cy].
+    W : int
+        Width of the image.
+    H : int
+        Height of the image.
+    nearest : float, optional
+        Nearest threshold for frustum culling, by default 0.2
+    extent : float, optional
+        Extent threshold for frustum culling, by default 1.3
+
+    Returns
+    -------
+    uv : Float[Tensor, "P 2"]
+        2D positions for each point in the image.
+    depth: Float[Tensor, "P 1"]
+        Depth for each point.
     """
     return _ProjectPoint.apply(
         xyz,

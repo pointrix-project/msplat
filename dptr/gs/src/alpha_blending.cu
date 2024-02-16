@@ -1,3 +1,7 @@
+/**
+ * @file alpha_blending.cu
+ * @brief 
+ */
 
 #include <utils.h>
 #include <glm/glm.hpp>
@@ -18,7 +22,7 @@ alphaBlendingForwardCUDAKernel(
     const float3* __restrict__ conic,
     const float* __restrict__ opacity,
     const float* __restrict__ feature,
-    const int* __restrict__ gaussian_idx_sorted,
+    const int* __restrict__ idx_sorted,
     const int2* __restrict__ tile_bins,
     const float bg, const int C,
     const int W, const int H, 
@@ -64,7 +68,7 @@ alphaBlendingForwardCUDAKernel(
         int progress = i * BLOCK_SIZE + block.thread_rank();
         if (range.x + progress < range.y)
         {
-            int coll_id = gaussian_idx_sorted[range.x + progress];
+            int coll_id = idx_sorted[range.x + progress];
             collected_id[block.thread_rank()] = coll_id;
             collected_uv[block.thread_rank()] = uv[coll_id];
             collected_conic[block.thread_rank()] = conic[coll_id];
@@ -121,7 +125,7 @@ alphaBlendingBackwardCUDAKernel(
     const float3* __restrict__ conic,
     const float* __restrict__ opacity,
     const float* __restrict__ feature,
-    const int* __restrict__ gaussian_idx_sorted,
+    const int* __restrict__ idx_sorted,
     const int2* __restrict__ tile_bins,
     const float bg, const int C,
     const int W, const int H,
@@ -177,7 +181,7 @@ alphaBlendingBackwardCUDAKernel(
         const int progress = i * BLOCK_SIZE + block.thread_rank();
         if (range.x + progress < range.y)
         {
-            const int coll_id = gaussian_idx_sorted[range.y - progress - 1];
+            const int coll_id = idx_sorted[range.y - progress - 1];
             collected_id[block.thread_rank()] = coll_id;
             collected_uv[block.thread_rank()] = uv[coll_id];
             collected_conic[block.thread_rank()] = conic[coll_id];
@@ -253,7 +257,7 @@ alphaBlendingForward(
     const torch::Tensor& conic,
     const torch::Tensor& opacity,
     const torch::Tensor& feature,
-    const torch::Tensor& gaussian_idx_sorted,
+    const torch::Tensor& idx_sorted,
     const torch::Tensor& tile_bins,
     const float bg,
     const int W, const int H
@@ -262,7 +266,7 @@ alphaBlendingForward(
     CHECK_INPUT(conic);
     CHECK_INPUT(opacity);
     CHECK_INPUT(feature);
-    CHECK_INPUT(gaussian_idx_sorted);
+    CHECK_INPUT(idx_sorted);
     CHECK_INPUT(tile_bins);
 
     const int P = feature.size(0);
@@ -292,7 +296,7 @@ alphaBlendingForward(
                 (float3*)conic.contiguous().data_ptr<float>(),
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
-                gaussian_idx_sorted.contiguous().data_ptr<int>(),
+                idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
@@ -308,7 +312,7 @@ alphaBlendingForward(
                 (float3*)conic.contiguous().data_ptr<float>(),
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
-                gaussian_idx_sorted.contiguous().data_ptr<int>(),
+                idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
@@ -324,7 +328,7 @@ alphaBlendingForward(
                 (float3*)conic.contiguous().data_ptr<float>(),
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
-                gaussian_idx_sorted.contiguous().data_ptr<int>(),
+                idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
@@ -340,7 +344,7 @@ alphaBlendingForward(
                 (float3*)conic.contiguous().data_ptr<float>(),
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
-                gaussian_idx_sorted.contiguous().data_ptr<int>(),
+                idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
@@ -356,7 +360,7 @@ alphaBlendingForward(
                 (float3*)conic.contiguous().data_ptr<float>(),
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
-                gaussian_idx_sorted.contiguous().data_ptr<int>(),
+                idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
@@ -372,7 +376,7 @@ alphaBlendingForward(
                 (float3*)conic.contiguous().data_ptr<float>(),
                 opacity.contiguous().data_ptr<float>(),
                 feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
-                gaussian_idx_sorted.contiguous().data_ptr<int>(),
+                idx_sorted.contiguous().data_ptr<int>(),
                 (int2*)tile_bins.contiguous().data_ptr<int>(),
                 bg, C - C0, W, H,
                 final_T.data_ptr<float>(),
@@ -393,7 +397,7 @@ alphaBlendingBackward(
     const torch::Tensor& conic,
     const torch::Tensor& opacity,
     const torch::Tensor& feature,
-    const torch::Tensor& gaussian_idx_sorted,
+    const torch::Tensor& idx_sorted,
     const torch::Tensor& tile_bins,
     const float bg,
     const int W, const int H,
@@ -405,7 +409,7 @@ alphaBlendingBackward(
     CHECK_INPUT(conic);
     CHECK_INPUT(opacity);
     CHECK_INPUT(feature);
-    CHECK_INPUT(gaussian_idx_sorted);
+    CHECK_INPUT(idx_sorted);
     CHECK_INPUT(tile_bins);
     CHECK_INPUT(final_T);
     CHECK_INPUT(ncontrib);
@@ -432,7 +436,7 @@ alphaBlendingBackward(
         (float3*)conic.contiguous().data_ptr<float>(),
         opacity.contiguous().data_ptr<float>(),
         feature_permute.contiguous().data_ptr<float>(),
-        gaussian_idx_sorted.contiguous().data_ptr<int>(),
+        idx_sorted.contiguous().data_ptr<int>(),
         (int2*)tile_bins.contiguous().data_ptr<int>(),
         bg, C, W, H,
         final_T.contiguous().data_ptr<float>(),

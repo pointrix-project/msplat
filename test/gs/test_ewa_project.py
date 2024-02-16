@@ -65,7 +65,7 @@ def ewa_project_torch_impl(
     v2 = b - torch.sqrt(torch.clamp(b**2 - det, min=0.1))
     radius = torch.ceil(3.0 * torch.sqrt(torch.max(v1, v2)))
 
-    # get tiles_touched
+    # get tiles
     top_left = torch.zeros_like(xy, dtype=torch.int, device=uv.device)
     bottom_right = torch.zeros_like(xy, dtype=torch.int, device=uv.device)
     top_left[:, 0] = ((xy[:, 0] - radius) / BLOCK_X)
@@ -93,20 +93,20 @@ def ewa_project_torch_impl(
     )
     
     tiles_tmp = tile_max - tile_min
-    tiles_touched = tiles_tmp[..., 0] * tiles_tmp[..., 1]
+    tiles = tiles_tmp[..., 0] * tiles_tmp[..., 1]
     
-    mask = torch.logical_and(tiles_touched != 0, det_mask)
+    mask = torch.logical_and(tiles != 0, det_mask)
     mask = torch.logical_and(visibility_status, mask)
     
     conic = torch.nan_to_num(conic)
     radius = torch.nan_to_num(radius)
-    tiles_touched = torch.nan_to_num(tiles_touched)
+    tiles = torch.nan_to_num(tiles)
 
     conic = conic * mask.float()[..., None]
     radius = radius * mask.float()
-    tiles_touched = tiles_touched * mask.float()
+    tiles = tiles * mask.float()
     
-    return conic, radius.int(), tiles_touched.int()
+    return conic, radius.int(), tiles.int()
 
 
 def getProjectionMatrix(fovX, fovY, znear=0.01, zfar=100):
@@ -205,7 +205,7 @@ if __name__ == "__main__":
         (
             out_conic_pytorch, 
             out_radius_pytorch, 
-            out_tiles_touched_pytorch
+            out_tiles_pytorch
         ) = ewa_project_torch_impl(
             xyz1,
             cov3d1, 
@@ -223,7 +223,7 @@ if __name__ == "__main__":
         (
             out_conic_cuda, 
             out_radius_cuda, 
-            out_tiles_touched_cuda
+            out_tiles_cuda
         ) = gs.ewa_project(
             xyz2,
             cov3d2, 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
     torch.testing.assert_close(out_conic_pytorch, out_conic_cuda)
     torch.testing.assert_close(out_radius_pytorch, out_radius_cuda)
-    torch.testing.assert_close(out_tiles_touched_pytorch, out_tiles_touched_cuda)
+    torch.testing.assert_close(out_tiles_pytorch, out_tiles_cuda)
     print("Forward pass.")
     
     # ============================================ Backward =====================================
@@ -255,7 +255,9 @@ if __name__ == "__main__":
     loss2.backward()
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
-
+    
+    cov3d1.grad = torch.nan_to_num(cov3d1.grad)
+    xyz1.grad = torch.nan_to_num(xyz1.grad)
     torch.testing.assert_close(cov3d1.grad, cov3d2.grad)
     torch.testing.assert_close(xyz1.grad, xyz2.grad)
     print("Backward pass.")

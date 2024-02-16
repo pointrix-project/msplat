@@ -1,3 +1,7 @@
+/**
+ * @file config.h
+ * @brief 
+ */
 # pragma one
 
 #define BLOCK_X 16

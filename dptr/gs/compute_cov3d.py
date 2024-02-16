@@ -1,25 +1,33 @@
 
 import torch
 from torch import Tensor
-from jaxtyping import Float
+from jaxtyping import Float, Bool
 import dptr.gs._C as _C
 
 
 def compute_cov3d(
-    scales: Float[Tensor, "*batch 3"],
-    uquats: Float[Tensor, "*batch 4"],
-    visibility_status: Float[Tensor, ""] = None,
-)->Tensor:
-    """Compute the 3D covariance matrix.
-
-    Args:
-        scales (Tensor): _description_
-        uquats (Tensor): _description_
-        visibility_status (Tensor, optional): _description_. Defaults to None.
-
-    Returns:
-        - **cov3d** (Tensor): 3D covariance vector, upper right part of the covariance matrix.
+    scales: Float[Tensor, "P 3"],
+    uquats: Float[Tensor, "P 4"],
+    visibility_status: Bool[Tensor, "P 1"] = None,
+)->Float[Tensor, "P 6"]:
     """
+    Compute the 3D covariance matrix.
+
+    Parameters
+    ----------
+    scales : Float[Tensor, "P 3"]
+        3D scaleing vector for each point.
+    uquats : Float[Tensor, "P 4"]
+        3D rotations (unit quaternions) for each point.
+    visibility_status : Bool[Tensor, "P 1"], optional
+        The visibility status of each point, by default None
+
+    Returns
+    -------
+    cov3d : Float[Tensor, "P 6"]
+        The upper-right corner of the 3D covariance matrices, stored in a vector.
+    """
+    
     if visibility_status is None:
         visibility_status = torch.ones_like(scales[:, 0], dtype=torch.bool)
     

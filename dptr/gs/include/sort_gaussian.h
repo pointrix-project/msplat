@@ -1,3 +1,7 @@
+/**
+ * @file sort_gaussian.h
+ * @brief 
+ */
 
 #pragma once
 
@@ -8,7 +12,7 @@ computeGaussianKey(
     const torch::Tensor& uv,
     const torch::Tensor& depth,
     const int W, const int H, 
-    const torch::Tensor& radii,
+    const torch::Tensor& radius,
     const torch::Tensor& cum_tiles_hit
 );
 
@@ -16,5 +20,5 @@ torch::Tensor
 computeTileGaussianRange(
     const int W, const int H, 
     const torch::Tensor& cum_tiles_hit,
-    const torch::Tensor& isect_ids_sorted
+    const torch::Tensor& isect_idx_sorted
 );

@@ -281,7 +281,7 @@ if __name__ == "__main__":
         (
             conic, 
             radius, 
-            tiles_touched
+            tiles
         ) = gs.ewa_project(
             world.get_xyz,
             cov3d, 
@@ -294,14 +294,14 @@ if __name__ == "__main__":
         
         # sort
         (
-            gaussian_idx_sorted, 
+            idx_sorted, 
             tile_bins
         ) = gs.sort_gaussian(
             uv, 
             depth, 
             W, H, 
             radius, 
-            tiles_touched
+            tiles
         )
         
         # alpha blending
@@ -316,7 +316,7 @@ if __name__ == "__main__":
             conic, 
             world.get_opacity, 
             feature,
-            gaussian_idx_sorted, 
+            idx_sorted, 
             tile_bins, 
             bg, 
             W, 

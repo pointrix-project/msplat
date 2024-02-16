@@ -7,12 +7,30 @@ import dptr.gs._C as _C
 
 
 def compute_sh(
-    shs,
-    degree,
-    view_dirs,
-    visibility_status=None
-)->Tensor:
-    
+    shs: Float[Tensor, "P D C"],
+    degree: int,
+    view_dirs: Float[Tensor, "P 3"],
+    visibility_status: Bool[Tensor, "P 1"] = None
+)->Float[Tensor, "P 3"]:
+    """
+    Compute RGB color from Spherical Harmonics(SHs).
+
+    Parameters
+    ----------
+    shs : Float[Tensor, "P D C"]
+        Spherical Harmonics(SHs).
+    degree : int
+        The degree of SHs.
+    view_dirs : Float[Tensor, "P 3"]
+        Normalized view direction.
+    visibility_status : Bool[Tensor, "P 1"], optional
+        The visibility status of each point, by default None
+
+    Returns
+    -------
+    rgb_color : Float[Tensor, "P 3"]
+        The view-dependent RGB color.
+    """
     if visibility_status is None:
         visibility_status = torch.ones_like(shs[:, 0, 0], dtype=torch.bool)
     

@@ -11,7 +11,7 @@ def alpha_blending_torch_impl(
     conic,
     opacity,
     feature,
-    gaussian_ids_sorted,
+    idx_sorted,
     tile_bins,
     bg,
     W, H
@@ -33,7 +33,7 @@ def alpha_blending_torch_impl(
             for idx in range(tile_bin_start, tile_bin_end):
                 contributor += 1
                 
-                gaussian_id = gaussian_ids_sorted[idx]
+                gaussian_id = idx_sorted[idx]
                 conic_idx = conic[gaussian_id]
                 center = uv[gaussian_id]
                 delta = center - torch.tensor(
@@ -66,11 +66,11 @@ def alpha_blending_torch_impl(
     return out_img.permute(2, 0, 1)
 
 
-def get_touched_tiles(uv, radius, W, H):
+def get_tiles(uv, radius, W, H):
     BLOCK_X = 16
     BLOCK_Y = 16
     
-    # get tiles_touched
+    # get tiles
     top_left = torch.zeros_like(uv, dtype=torch.int, device=uv.device)
     bottom_right = torch.zeros_like(uv, dtype=torch.int, device=uv.device)
     
@@ -99,9 +99,9 @@ def get_touched_tiles(uv, radius, W, H):
     )
     
     tiles_tmp = tile_max - tile_min
-    tiles_touched = tiles_tmp[..., 0] * tiles_tmp[..., 1]
+    tiles = tiles_tmp[..., 0] * tiles_tmp[..., 1]
     
-    return tiles_touched
+    return tiles
 
 
 def generate_covariance2d():
@@ -131,22 +131,22 @@ if __name__ == "__main__":
     conic = generate_covariance2d()
     
     depth = torch.rand_like(uv[:, 0:1]) * 5
-    radii = (torch.rand_like(depth) * 5).int()
-    num_tiles_hit = get_touched_tiles(uv, radii.squeeze(-1), w, h)
+    radius = (torch.rand_like(depth) * 5).int()
+    tiles = get_tiles(uv, radius.squeeze(-1), w, h)
     opacity = torch.rand_like(depth)
     feature = torch.rand([N, 2], device="cuda", dtype=torch.float32)
     
     # sort
     (
-        gaussian_ids_sorted, 
+        idx_sorted, 
         tile_bins
     ) = gs.sort_gaussian(
         uv, 
         depth, 
         w, 
         h, 
-        radii, 
-        num_tiles_hit
+        radius, 
+        tiles
     )
     
     # ============================================ Forward =====================================
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         conic1,
         opacity1,
         feature1,
-        gaussian_ids_sorted,
+        idx_sorted,
         tile_bins,
         bg,
         w, 
@@ -177,7 +177,7 @@ if __name__ == "__main__":
         conic2, 
         opacity2, 
         feature2, 
-        gaussian_ids_sorted, 
+        idx_sorted, 
         tile_bins, 
         bg, 
         w, 

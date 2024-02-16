@@ -1,19 +1,25 @@
 /**
  * @file project_point.h
- * @author your name (you@domain.com)
  * @brief 
- * @version 0.1
- * @date 2024-01-18
- * 
- * @copyright Copyright (c) 2024
- * 
  */
 
 #pragma once
 
 #include <torch/extension.h>
 
-
+/**
+ * @brief 
+ * 
+ * @param xyz 
+ * @param viewmat 
+ * @param projmat 
+ * @param camparam 
+ * @param W 
+ * @param H 
+ * @param nearest 
+ * @param extent 
+ * @return std::tuple<torch::Tensor, torch::Tensor> 
+ */
 std::tuple<torch::Tensor, torch::Tensor> 
 projectPointsForward(
     const torch::Tensor& xyz,
@@ -25,6 +31,21 @@ projectPointsForward(
     const float extent
 );
 
+/**
+ * @brief 
+ * 
+ * @param xyz 
+ * @param viewmat 
+ * @param projmat 
+ * @param camparam 
+ * @param W 
+ * @param H 
+ * @param uv 
+ * @param depth 
+ * @param dL_duv 
+ * @param dL_ddepth 
+ * @return torch::Tensor 
+ */
 torch::Tensor 
 projectPointsBackward(
     const torch::Tensor& xyz,
