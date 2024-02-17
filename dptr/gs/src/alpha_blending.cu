@@ -227,14 +227,16 @@ alphaBlendingBackwardCUDAKernel(
                 dL_dalpha += (current_feature - accum_rec[ch]) * dL_dpixel[ch];
                 atomicAdd(&dL_dfeature[ch * P + global_id], dchannel_dcolor * dL_dpixel[ch]);
             }
+
             dL_dalpha *= T;
             last_alpha = alpha;
 
             float bg_dot_dpixel = 0;
             for (int ch = 0; ch < c_num; ch++)
                 bg_dot_dpixel += bg * dL_dpixel[ch];
+
             dL_dalpha += (-T_final / (1.f - alpha)) * bg_dot_dpixel;
-            
+
             const float dL_dG = opac * dL_dalpha;
             const float2 dG_dvec = {
                 - G * vec.x * conic2d.x - G * vec.y * conic2d.y,
@@ -289,7 +291,8 @@ alphaBlendingForward(
         size_t feature_data_offset = C0 * P;
         size_t render_data_offset = C0 * H * W;
 
-        if(C - C0 <= 3){
+        if(C - C0 <= 3)
+        {
             alphaBlendingForwardCUDAKernel<3> <<<tile_grid, block>>>(
                 P,
                 (float2*)uv.contiguous().data_ptr<float>(),
@@ -305,7 +308,8 @@ alphaBlendingForward(
             );
             C0 += 3;
         }
-        else if(C - C0 <= 6){
+        else if(C - C0 <= 6)
+        {
             alphaBlendingForwardCUDAKernel<6> <<<tile_grid, block>>>(
                 P,
                 (float2*)uv.contiguous().data_ptr<float>(),
@@ -321,7 +325,8 @@ alphaBlendingForward(
             );
             C0 += 6;
         }
-        else if(C - C0 <= 12){
+        else if(C - C0 <= 12)
+        {
             alphaBlendingForwardCUDAKernel<12> <<<tile_grid, block>>>(
                 P,
                 (float2*)uv.contiguous().data_ptr<float>(),
@@ -337,7 +342,8 @@ alphaBlendingForward(
             );
             C0 += 12;
         }
-        else if(C - C0 <= 18){
+        else if(C - C0 <= 18)
+        {
             alphaBlendingForwardCUDAKernel<18> <<<tile_grid, block>>>(
                 P,
                 (float2*)uv.contiguous().data_ptr<float>(),
@@ -353,7 +359,8 @@ alphaBlendingForward(
             );
             C0 += 18;
         }
-        else if(C - C0 <= 24){
+        else if(C - C0 <= 24)
+        {
             alphaBlendingForwardCUDAKernel<24> <<<tile_grid, block>>>(
                 P,
                 (float2*)uv.contiguous().data_ptr<float>(),
@@ -369,7 +376,8 @@ alphaBlendingForward(
             );
             C0 += 24;
         }
-        else{
+        else
+        {
             alphaBlendingForwardCUDAKernel<32> <<<tile_grid, block>>>(
                 P,
                 (float2*)uv.contiguous().data_ptr<float>(),
@@ -390,7 +398,7 @@ alphaBlendingForward(
     return std::make_tuple(rendered_feature, final_T, ncontrib);
 }
 
-// 3, 6, 12, 18, 24, 32
+
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 alphaBlendingBackward(
     const torch::Tensor& uv,
@@ -423,6 +431,7 @@ alphaBlendingBackward(
     torch::Tensor dL_dconic = torch::zeros({P, 3}, float_opts);
     torch::Tensor dL_dopacity = torch::zeros({P, 1}, float_opts);
     torch::Tensor dL_dfeature_permute = torch::zeros({C, P}, float_opts);
+    torch::Tensor dL_dalpha = torch::zeros({H, W}, float_opts);
 
     const dim3 tile_grid((W + BLOCK_X - 1) / BLOCK_X, (H + BLOCK_Y - 1) / BLOCK_Y, 1);
     const dim3 block(BLOCK_X, BLOCK_Y, 1);
@@ -430,24 +439,139 @@ alphaBlendingBackward(
     // [C, N]
     torch::Tensor feature_permute = feature.transpose(0, 1);
 
-    alphaBlendingBackwardCUDAKernel<3> <<<tile_grid, block>>>(
-        P,
-        (float2*)uv.contiguous().data_ptr<float>(),
-        (float3*)conic.contiguous().data_ptr<float>(),
-        opacity.contiguous().data_ptr<float>(),
-        feature_permute.contiguous().data_ptr<float>(),
-        idx_sorted.contiguous().data_ptr<int>(),
-        (int2*)tile_range.contiguous().data_ptr<int>(),
-        bg, C, W, H,
-        final_T.contiguous().data_ptr<float>(),
-        ncontrib.contiguous().data_ptr<int>(),
-        dL_drendered.contiguous().data_ptr<float>(),
-        (float2*)dL_duv.data_ptr<float>(),
-        (float3*)dL_dconic.data_ptr<float>(),
-        dL_dopacity.data_ptr<float>(),
-        dL_dfeature_permute.data_ptr<float>()
-    );
+    int C0 = 0;
+    while(C0 < C){
+        size_t feature_data_offset = C0 * P;
+        size_t render_data_offset = C0 * H * W;
 
+        if(C - C0 <= 3)
+        {
+            alphaBlendingBackwardCUDAKernel<3> <<<tile_grid, block>>>(
+                P, 
+                (float2*)uv.contiguous().data_ptr<float>(),
+                (float3*)conic.contiguous().data_ptr<float>(),
+                opacity.contiguous().data_ptr<float>(),
+                feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
+                idx_sorted.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
+                bg, C - C0, W, H,
+                final_T.contiguous().data_ptr<float>(),
+                ncontrib.contiguous().data_ptr<int>(),
+                dL_drendered.contiguous().data_ptr<float>() + render_data_offset,
+                (float2*)dL_duv.data_ptr<float>(),
+                (float3*)dL_dconic.data_ptr<float>(),
+                dL_dopacity.data_ptr<float>(),
+                dL_dfeature_permute.data_ptr<float>() + feature_data_offset
+            );
+            C0 += 3;
+        }
+        else if(C - C0 <= 6)
+        {
+            alphaBlendingBackwardCUDAKernel<6> <<<tile_grid, block>>>(
+                P,
+                (float2*)uv.contiguous().data_ptr<float>(),
+                (float3*)conic.contiguous().data_ptr<float>(),
+                opacity.contiguous().data_ptr<float>(),
+                feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
+                idx_sorted.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
+                bg, C - C0, W, H,
+                final_T.contiguous().data_ptr<float>(),
+                ncontrib.contiguous().data_ptr<int>(),
+                dL_drendered.contiguous().data_ptr<float>() + render_data_offset,
+                (float2*)dL_duv.data_ptr<float>(),
+                (float3*)dL_dconic.data_ptr<float>(),
+                dL_dopacity.data_ptr<float>(),
+                dL_dfeature_permute.data_ptr<float>() + feature_data_offset
+            );
+            C0 += 6;
+        }
+        else if(C - C0 <= 12)
+        {
+            alphaBlendingBackwardCUDAKernel<12> <<<tile_grid, block>>>(
+                P,
+                (float2*)uv.contiguous().data_ptr<float>(),
+                (float3*)conic.contiguous().data_ptr<float>(),
+                opacity.contiguous().data_ptr<float>(),
+                feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
+                idx_sorted.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
+                bg, C - C0, W, H,
+                final_T.contiguous().data_ptr<float>(),
+                ncontrib.contiguous().data_ptr<int>(),
+                dL_drendered.contiguous().data_ptr<float>() + render_data_offset,
+                (float2*)dL_duv.data_ptr<float>(),
+                (float3*)dL_dconic.data_ptr<float>(),
+                dL_dopacity.data_ptr<float>(),
+                dL_dfeature_permute.data_ptr<float>() + feature_data_offset
+            );
+            C0 += 12;
+        }
+        else if(C - C0 <= 18)
+        {
+            alphaBlendingBackwardCUDAKernel<18> <<<tile_grid, block>>>(
+                P,
+                (float2*)uv.contiguous().data_ptr<float>(),
+                (float3*)conic.contiguous().data_ptr<float>(),
+                opacity.contiguous().data_ptr<float>(),
+                feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
+                idx_sorted.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
+                bg, C - C0, W, H,
+                final_T.contiguous().data_ptr<float>(),
+                ncontrib.contiguous().data_ptr<int>(),
+                dL_drendered.contiguous().data_ptr<float>() + render_data_offset,
+                (float2*)dL_duv.data_ptr<float>(),
+                (float3*)dL_dconic.data_ptr<float>(),
+                dL_dopacity.data_ptr<float>(),
+                dL_dfeature_permute.data_ptr<float>() + feature_data_offset
+            );
+            C0 += 18;
+        }
+        else if(C - C0 <= 24)
+        {
+            alphaBlendingBackwardCUDAKernel<24> <<<tile_grid, block>>>(
+                P,
+                (float2*)uv.contiguous().data_ptr<float>(),
+                (float3*)conic.contiguous().data_ptr<float>(),
+                opacity.contiguous().data_ptr<float>(),
+                feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
+                idx_sorted.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
+                bg, C - C0, W, H,
+                final_T.contiguous().data_ptr<float>(),
+                ncontrib.contiguous().data_ptr<int>(),
+                dL_drendered.contiguous().data_ptr<float>() + render_data_offset,
+                (float2*)dL_duv.data_ptr<float>(),
+                (float3*)dL_dconic.data_ptr<float>(),
+                dL_dopacity.data_ptr<float>(),
+                dL_dfeature_permute.data_ptr<float>() + feature_data_offset
+            );
+            C0 += 24;
+        }
+        else
+        {
+            alphaBlendingBackwardCUDAKernel<32> <<<tile_grid, block>>>(
+                P,
+                (float2*)uv.contiguous().data_ptr<float>(),
+                (float3*)conic.contiguous().data_ptr<float>(),
+                opacity.contiguous().data_ptr<float>(),
+                feature_permute.contiguous().data_ptr<float>() + feature_data_offset,
+                idx_sorted.contiguous().data_ptr<int>(),
+                (int2*)tile_range.contiguous().data_ptr<int>(),
+                bg, C - C0, W, H,
+                final_T.contiguous().data_ptr<float>(),
+                ncontrib.contiguous().data_ptr<int>(),
+                dL_drendered.contiguous().data_ptr<float>() + render_data_offset,
+                (float2*)dL_duv.data_ptr<float>(),
+                (float3*)dL_dconic.data_ptr<float>(),
+                dL_dopacity.data_ptr<float>(),
+                dL_dfeature_permute.data_ptr<float>() + feature_data_offset
+            );
+            C0 += 32;
+        }
+    }
+    
     // [N, C]
     torch::Tensor dL_dfeature = dL_dfeature_permute.transpose(0, 1);
 

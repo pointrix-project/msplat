@@ -112,14 +112,14 @@ def generate_covariance2d():
 
 if __name__ == "__main__":
 
-    # seed = 121
-    # torch.manual_seed(seed)
+    seed = 121
+    torch.manual_seed(seed)
     
     print("=============================== running test on alpha_blending ===============================")
     
     # generate data
-    w = 3
-    h = 3
+    w = 32
+    h = 16
     bg = 1
     
     N = 20
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     radius = (torch.rand_like(depth) * 5).int()
     tiles = get_tiles(uv, radius.squeeze(-1), w, h)
     opacity = torch.rand_like(depth)
-    feature = torch.rand([N, 2], device="cuda", dtype=torch.float32)
+    feature = torch.rand([N, 33], device="cuda", dtype=torch.float32)
     
     # sort
     (
