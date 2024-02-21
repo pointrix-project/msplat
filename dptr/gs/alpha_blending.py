@@ -41,7 +41,7 @@ def alpha_blending(
     Returns
     -------
     feature_map : Float[Tensor, "C H W"]
-        Rendered feature maps
+        Rendered feature maps.
     """
     
     return _AlphaBlending.apply(

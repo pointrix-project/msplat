@@ -52,7 +52,7 @@ if __name__ == "__main__":
     # torch.manual_seed(seed)
     
     bg = 0
-    image_file = "./media/DPTR.png"
+    image_file = "./media/dptr.png"
     img = np.array(Image.open(image_file))
     img = img.astype(np.float32) / 255.0
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
@@ -77,76 +77,27 @@ if __name__ == "__main__":
     l1_loss = nn.L1Loss()
     
     for iteration in range(0, max_iter):
-        # project points
-        (
-            uv,
-            depth 
-        ) = gs.project_point(
-            gaussians.get_attribute("xyz"), 
-            viewmat, 
+        
+        rendered_feature = gs.rasterization(
+            gaussians.get_attribute("xyz"),
+            gaussians.get_attribute("scale"),
+            gaussians.get_attribute("rotate"), 
+            gaussians.get_attribute("opacity"),
+            gaussians.get_attribute("rgb"),
+            viewmat,
             projmat,
             camparam,
-            W, H)
+            W, H, bg)
         
-        visible = depth != 0
-        
-        # compute cov3d
-        cov3d = gs.compute_cov3d(
-            gaussians.get_attribute("scale"), 
-            gaussians.get_attribute("rotate"), 
-            visible)
-        
-        # ewa project
-        (
-            conic, 
-            radius, 
-            tiles_touched
-        ) = gs.ewa_project(
-            gaussians.get_attribute("xyz"),
-            cov3d, 
-            viewmat,
-            camparam,
-            uv,
-            W, H,
-            visible
-        )
-        
-        # sort
-        (
-            gaussian_ids_sorted, 
-            tile_range
-        ) = gs.sort_gaussian(
-            uv, 
-            depth, 
-            W, H, 
-            radius, 
-            tiles_touched
-        )
-        
-        # alpha blending
-        render_feature = gs.alpha_blending(
-            uv, 
-            conic, 
-            gaussians.get_attribute("opacity"), 
-            gaussians.get_attribute("rgb"), 
-            gaussian_ids_sorted, 
-            tile_range, 
-            bg, 
-            W, 
-            H
-        )
-        
-        loss = l1_loss(render_feature, gt)
+        loss = l1_loss(rendered_feature, gt)
         loss.backward()
-        
         gaussians.step()
         
-        valid_num = torch.sum(visible.float())
-        progress_bar.set_postfix({"Loss": f"{loss:.{7}f}", "valid_num": f"{valid_num}"})
+        progress_bar.set_postfix({"Loss": f"{loss:.{7}f}"})
         progress_bar.update(1)
         
         if iteration % 100 == 0:
-            show_data = render_feature.detach().permute(1, 2, 0)
+            show_data = rendered_feature.detach().permute(1, 2, 0)
             show_data = torch.clamp(show_data, 0.0, 1.0)
             frames.append((show_data.cpu().numpy() * 255).astype(np.uint8))
     

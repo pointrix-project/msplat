@@ -15,7 +15,7 @@ Differentiable PoinT Renderer, backend for POINTRIX.
 
 The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serves as the backend of [POINTRIX]() and is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
 ![dptr](media/media.gif)
-The logo of [DPTR](https://www.bing.com/images/create/an-icon-for-dpt-renderer2c-differentiable-point-ren/1-65a7c65dbd784e72913e5d80f9668a52?id=eJ9o1BS%2bV5BbgdDmGXi7jg%3d%3d&view=detailv2&idpp=genimg&noidpclose=1&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/).
+The logo of [DPTR](https://www.bing.com/images/create/a-logo-for-dptr-differentiable-point-renderer2c-w/1-65d4bedd4ab84dc2a0983d1137a2ae75?id=Aq9grH0ZLohkId7qqRf3xQ%3d%3d&view=detailv2&idpp=genimg&thId=OIG1.JGMYYbQ9W7pdur2USXGO&FORM=GCRIDP&mode=overlay) is desisned by [Microsoft Designer](https://designer.microsoft.com/).
 
 ## Tutorial: Fitting the logo with 3D Gaussian Splatting
 In this tutorial, we will demonstrate how to use DPTR to implement 3D Gaussian Splatting (3DGS) to fit the DPTR logo step by step. If you are not familiar with 3DGS, you can learn more about it through the original [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) project.
