@@ -71,10 +71,10 @@ if __name__ == "__main__":
     
     gaussians = SimpleGaussian(num_points=100000)
     
-    max_iter = 7000
+    max_iter = 4000
     frames = []
     progress_bar = tqdm(range(1, max_iter), desc="Training")
-    mse_loss = nn.MSELoss()
+    cal_loss = nn.SmoothL1Loss()
     
     for iteration in range(0, max_iter):
         
@@ -89,14 +89,14 @@ if __name__ == "__main__":
             camparam,
             W, H, bg)
         
-        loss = mse_loss(rendered_feature, gt)
+        loss = cal_loss(rendered_feature, gt)
         loss.backward()
         gaussians.step()
         
         progress_bar.set_postfix({"Loss": f"{loss:.{7}f}"})
         progress_bar.update(1)
         
-        if iteration % 100 == 0:
+        if iteration % 50 == 0:
             show_data = rendered_feature.detach().permute(1, 2, 0)
             show_data = torch.clamp(show_data, 0.0, 1.0)
             frames.append((show_data.cpu().numpy() * 255).astype(np.uint8))

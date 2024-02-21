@@ -15,7 +15,7 @@ Differentiable PoinT Renderer, backend for POINTRIX.
 
 The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serves as the backend of [POINTRIX]() and is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
 ![dptr](media/media.gif)
-The logo of [DPTR](https://www.bing.com/images/create/a-logo-for-dptr-differentiable-point-renderer2c-w/1-65d4bedd4ab84dc2a0983d1137a2ae75?id=Aq9grH0ZLohkId7qqRf3xQ%3d%3d&view=detailv2&idpp=genimg&thId=OIG1.JGMYYbQ9W7pdur2USXGO&FORM=GCRIDP&mode=overlay) is desisned by [Microsoft Designer](https://designer.microsoft.com/).
+The logo of [DPTR](https://www.bing.com/images/create/a-3d-logo-made-of-small2c-dark-particles-for-an-ope/1-65d5d0c0f2a24c4ea2a1d3bbd9e2a371?id=G8uixCHHEt%2fNOZsGgDGSeA%3d%3d&view=detailv2&idpp=genimg&idpclose=1&thId=OIG3.JNO1BM32lVS9dsHkHxbH&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/).
 
 ## How to install
 1. Install from source
@@ -36,7 +36,7 @@ pip install dptr
 In this tutorial, we will demonstrate how to use DPTR to implement 3D Gaussian Splatting (3DGS) to fit the DPTR logo step by step. If you are not familiar with 3DGS, you can learn more about it through the original [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) project.
 
 ### Create a simple colorful 3D Gaussian class
-First, we create a simplified colorful 3D Gaussian point cloud. The attributes we set include 3D position, scale, rotation, opacity, and RGB color, all of which are randomly initialized.
+First, we create a simplified class for colorful 3D Gaussian point cloud. The attributes we set include 3D position, scale, rotation, opacity, and RGB color, all of which are randomly initialized.
 ```python
 class SimpleGaussian:
     def __init__(self, num_points=100000):
@@ -119,10 +119,10 @@ Create a 3D Gaussian point cloud and optimize it!
 ```python
     gaussians = SimpleGaussian(num_points=100000)
 
-    max_iter = 2000
+    max_iter = 4000
     frames = []
     progress_bar = tqdm(range(1, max_iter), desc="Training")
-    mse_loss = nn.MSELoss()
+    cal_loss = nn.SmoothL1Loss()
 
     for iteration in range(0, max_iter):
         
@@ -137,7 +137,7 @@ Create a 3D Gaussian point cloud and optimize it!
             camparam,
             W, H, bg)
         
-        loss = mse_loss(render_feature, gt)
+        loss = cal_loss(rendered_feature, gt)
         loss.backward()
         
         gaussians.step()
@@ -145,7 +145,7 @@ Create a 3D Gaussian point cloud and optimize it!
         progress_bar.set_postfix({"Loss": f"{loss:.{7}f}"})
         progress_bar.update(1)
         
-        if iteration % 20 == 0:
+        if iteration % 50 == 0:
             show_data = render_feature.detach().permute(1, 2, 0)
             show_data = torch.clamp(show_data, 0.0, 1.0)
             frames.append((show_data.cpu().numpy() * 255).astype(np.uint8))
@@ -176,6 +176,7 @@ python tutorials/gs.py
 ## Plans
 - [ ] Further enhance interface user-friendliness.
 - [ ] Optimization on camera.
+- [ ] Change camera to cv style.
 - [ ] Higher order spherical harmonic.
 - [ ] Not only 3-channal SHs.
 - [ ] Spherical Gaussian.
