@@ -1,15 +1,14 @@
 /**
  * @file ext.cpp
- * @brief 
+ * @brief
  */
 
-#include <project_point.h>
-#include <compute_cov3d.h>
-#include <ewa_project.h>
-#include <sort_gaussian.h>
-#include <compute_sh.h>
 #include <alpha_blending.h>
-
+#include <compute_cov3d.h>
+#include <compute_sh.h>
+#include <ewa_project.h>
+#include <project_point.h>
+#include <sort_gaussian.h>
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("project_point_forward", &projectPointsForward);

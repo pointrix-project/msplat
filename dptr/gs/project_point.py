@@ -1,4 +1,3 @@
-
 import torch
 from torch import Tensor
 from typing import Tuple
@@ -11,10 +10,11 @@ def project_point(
     viewmat: Float[Tensor, "4 4"],
     projmat: Float[Tensor, "4 4"],
     camparam: Float[Tensor, "4"],
-    W: int, H: int,
+    W: int,
+    H: int,
     nearest: float = 0.2,
-    extent: float = 1.3
-)->Tuple:
+    extent: float = 1.3,
+) -> Tuple:
     """
     Project 3D points to the screen.
 
@@ -25,7 +25,7 @@ def project_point(
     viewmat : Float[Tensor, "4 4"]
         The world to view transform matrix.
     projmat : Float[Tensor, "4 4"]
-        The world to screen transform matrix. 
+        The world to screen transform matrix.
     camparam : Float[Tensor, "4"]
         The intrinsics of camera [fx, fy, cx, cy].
     W : int
@@ -44,15 +44,7 @@ def project_point(
     depth: Float[Tensor, "P 1"]
         Depth for each point.
     """
-    return _ProjectPoint.apply(
-        xyz,
-        viewmat,
-        projmat,
-        camparam,
-        W, H,
-        nearest,
-        extent
-    )
+    return _ProjectPoint.apply(xyz, viewmat, projmat, camparam, W, H, nearest, extent)
 
 
 class _ProjectPoint(torch.autograd.Function):
@@ -63,58 +55,33 @@ class _ProjectPoint(torch.autograd.Function):
         viewmat: Float[Tensor, "4 4"],
         projmat: Float[Tensor, "4 4"],
         camparam: Float[Tensor, "4"],
-        W: int, H: int,
+        W: int,
+        H: int,
         nearest: float,
-        extent: float
+        extent: float,
     ):
-        
-        (
-            uv, 
-            depth
-        ) = _C.project_point_forward(
-            xyz, 
-            viewmat, 
-            projmat,
-            camparam,
-            W, H,
-            nearest,
-            extent
+        (uv, depth) = _C.project_point_forward(
+            xyz, viewmat, projmat, camparam, W, H, nearest, extent
         )
-        
+
         # save variables for backward
         ctx.W = W
         ctx.H = H
-        ctx.save_for_backward(
-            xyz, 
-            viewmat, 
-            projmat,
-            camparam,
-            uv,
-            depth
-            )
-        
+        ctx.save_for_backward(xyz, viewmat, projmat, camparam, uv, depth)
+
         return uv, depth
 
     @staticmethod
     def backward(ctx, dL_duv, dL_ddepth):
-        
         # get saved variables from forward
         H = ctx.H
         W = ctx.W
         xyz, viewmat, projmat, camparam, uv, depth = ctx.saved_tensors
-        
+
         dL_dxyz = _C.project_point_backward(
-            xyz, 
-            viewmat,
-            projmat,
-            camparam,
-            W, H,
-            uv,
-            depth, 
-            dL_duv,
-            dL_ddepth
+            xyz, viewmat, projmat, camparam, W, H, uv, depth, dL_duv, dL_ddepth
         )
-        
+
         grads = (
             # loss gradient w.r.t xyz
             dL_dxyz,

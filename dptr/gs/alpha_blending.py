@@ -1,4 +1,3 @@
-
 import torch
 from torch import Tensor
 from jaxtyping import Float
@@ -6,13 +5,15 @@ import dptr.gs._C as _C
 
 
 def alpha_blending(
-    uv: Float[Tensor, "P 2"], 
-    conic: Float[Tensor, "P 2"], 
+    uv: Float[Tensor, "P 2"],
+    conic: Float[Tensor, "P 2"],
     opacity: Float[Tensor, "P 1"],
     feature: Float[Tensor, "P C"],
     idx_sorted: Float[Tensor, "Nid"],
     title_bins: Float[Tensor, "Ntile 2"],
-    bg: float, W: int, H: int
+    bg: float,
+    W: int,
+    H: int,
 ) -> Float[Tensor, "C H W"]:
     """
     Alpha Blending for sorted 2D planar Gaussian in a tile based manner.
@@ -43,64 +44,26 @@ def alpha_blending(
     feature_map : Float[Tensor, "C H W"]
         Rendered feature maps.
     """
-    
+
     return _AlphaBlending.apply(
-        uv,
-        conic,
-        opacity,
-        feature,
-        idx_sorted,
-        title_bins,
-        bg,
-        W,
-        H
+        uv, conic, opacity, feature, idx_sorted, title_bins, bg, W, H
     )
 
 
 class _AlphaBlending(torch.autograd.Function):
     @staticmethod
-    def forward(
-        ctx, 
-        uv, 
-        conic,
-        opacity,
-        feature,
-        idx_sorted,
-        tile_range,
-        bg, 
-        W, 
-        H):
-        
-        (
-            render_feature, 
-            final_T, 
-            ncontrib
-        ) = _C.alpha_blending_forward(
-            uv,
-            conic,
-            opacity,
-            feature,
-            idx_sorted,
-            tile_range,
-            bg,
-            W,
-            H
+    def forward(ctx, uv, conic, opacity, feature, idx_sorted, tile_range, bg, W, H):
+        (render_feature, final_T, ncontrib) = _C.alpha_blending_forward(
+            uv, conic, opacity, feature, idx_sorted, tile_range, bg, W, H
         )
-        
+
         ctx.W = W
         ctx.H = H
         ctx.bg = bg
         ctx.save_for_backward(
-            uv,
-            conic,
-            opacity,
-            feature,
-            idx_sorted,
-            tile_range,
-            final_T,
-            ncontrib
+            uv, conic, opacity, feature, idx_sorted, tile_range, final_T, ncontrib
         )
-        
+
         return render_feature
 
     @staticmethod
@@ -108,7 +71,7 @@ class _AlphaBlending(torch.autograd.Function):
         W = ctx.W
         H = ctx.H
         bg = ctx.bg
-        
+
         (
             uv,
             conic,
@@ -117,15 +80,10 @@ class _AlphaBlending(torch.autograd.Function):
             idx_sorted,
             tile_range,
             final_T,
-            ncontrib
+            ncontrib,
         ) = ctx.saved_tensors
-        
-        (
-            dL_duv,
-            dL_dconic,
-            dL_dopacity,
-            dL_dfeature
-        ) = _C.alpha_blending_backward(
+
+        (dL_duv, dL_dconic, dL_dopacity, dL_dfeature) = _C.alpha_blending_backward(
             uv,
             conic,
             opacity,
@@ -137,9 +95,9 @@ class _AlphaBlending(torch.autograd.Function):
             H,
             final_T,
             ncontrib,
-            dL_drendered
+            dL_drendered,
         )
-        
+
         grads = (
             # grads w.r.t uv
             dL_duv,
@@ -153,12 +111,12 @@ class _AlphaBlending(torch.autograd.Function):
             None,
             # grads w.r. tile_range,
             None,
-            # grads w.r. bg, 
+            # grads w.r. bg,
             None,
-            # grads w.r. W, 
+            # grads w.r. W,
             None,
             # grads w.r. H
-            None
+            None,
         )
 
         return grads

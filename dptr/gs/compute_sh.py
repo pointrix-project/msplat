@@ -1,4 +1,3 @@
-
 import torch
 from torch import Tensor
 from typing import Tuple
@@ -10,8 +9,8 @@ def compute_sh(
     shs: Float[Tensor, "P D C"],
     degree: int,
     view_dirs: Float[Tensor, "P 3"],
-    visible: Bool[Tensor, "P 1"] = None
-)->Float[Tensor, "P 3"]:
+    visible: Bool[Tensor, "P 1"] = None,
+) -> Float[Tensor, "P 3"]:
     """
     Compute RGB color from Spherical Harmonics(SHs).
 
@@ -33,72 +32,31 @@ def compute_sh(
     """
     if visible is None:
         visible = torch.ones_like(shs[:, 0, 0], dtype=torch.bool)
-    
-    return _ComputeSH.apply(
-        shs,
-        degree,
-        view_dirs,
-        visible
-    )
-    
+
+    return _ComputeSH.apply(shs, degree, view_dirs, visible)
+
 
 class _ComputeSH(torch.autograd.Function):
     @staticmethod
-    def forward(
-        ctx,
-        shs,
-        degree,
-        view_dirs,
-        visible
-    ):
-        
-        (
-            color,
-            clamped
-        ) = _C.compute_sh_forward(
-            shs,
-            degree,
-            view_dirs,
-            visible
-        )
-        
+    def forward(ctx, shs, degree, view_dirs, visible):
+        (color, clamped) = _C.compute_sh_forward(shs, degree, view_dirs, visible)
+
         # save variables for backward
         ctx.degree = degree
-        ctx.save_for_backward(
-            shs, 
-            view_dirs, 
-            visible,
-            clamped
-        )
-        
+        ctx.save_for_backward(shs, view_dirs, visible, clamped)
+
         return color
 
     @staticmethod
-    def backward(
-        ctx, 
-        dL_dcolor):
-        
+    def backward(ctx, dL_dcolor):
         # get saved variables from forward
         degree = ctx.degree
-        (
-            shs, 
-            view_dirs, 
-            visible, 
-            clamped
-        ) = ctx.saved_tensors
-        
-        (
-            dL_dshs, 
-            dL_dvdirs
-        ) = _C.compute_sh_backward(
-            shs,
-            degree,
-            view_dirs,
-            visible,
-            clamped,
-            dL_dcolor
+        (shs, view_dirs, visible, clamped) = ctx.saved_tensors
+
+        (dL_dshs, dL_dvdirs) = _C.compute_sh_backward(
+            shs, degree, view_dirs, visible, clamped, dL_dcolor
         )
-        
+
         grads = (
             # loss gradient w.r.t shs
             dL_dshs,

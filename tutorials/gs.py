@@ -22,7 +22,7 @@ class SimpleGaussian:
         }
         
         self._activations = {
-            "scale": torch.exp,
+            "scale": lambda x: torch.abs(x) + 1e-8,
             "rotate": torch.nn.functional.normalize,
             "opacity": torch.sigmoid,
             "rgb": torch.sigmoid
@@ -48,8 +48,8 @@ class SimpleGaussian:
 
 
 if __name__ == "__main__":
-    # seed = 123
-    # torch.manual_seed(seed)
+    seed = 123
+    torch.manual_seed(seed)
     
     bg = 0
     image_file = "./media/dptr.png"
@@ -71,10 +71,10 @@ if __name__ == "__main__":
     
     gaussians = SimpleGaussian(num_points=100000)
     
-    max_iter = 7000
+    max_iter = 2000
     frames = []
     progress_bar = tqdm(range(1, max_iter), desc="Training")
-    l1_loss = nn.L1Loss()
+    mse_loss = nn.MSELoss()
     
     for iteration in range(0, max_iter):
         
@@ -89,14 +89,14 @@ if __name__ == "__main__":
             camparam,
             W, H, bg)
         
-        loss = l1_loss(rendered_feature, gt)
+        loss = mse_loss(rendered_feature, gt)
         loss.backward()
         gaussians.step()
         
         progress_bar.set_postfix({"Loss": f"{loss:.{7}f}"})
         progress_bar.update(1)
         
-        if iteration % 100 == 0:
+        if iteration % 20 == 0:
             show_data = rendered_feature.detach().permute(1, 2, 0)
             show_data = torch.clamp(show_data, 0.0, 1.0)
             frames.append((show_data.cpu().numpy() * 255).astype(np.uint8))

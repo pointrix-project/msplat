@@ -1,0 +1,8 @@
+BasedOnStyle: LLVM
+BinPackArguments: false
+BinPackParameters: false
+DerivePointerAlignment: false
+IncludeBlocks: Regroup
+SortIncludes: true
+IndentWidth: 4
+AccessModifierOffset: -4

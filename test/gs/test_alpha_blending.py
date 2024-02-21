@@ -149,8 +149,6 @@ if __name__ == "__main__":
         tiles
     )
     
-    # ============================================ Forward =====================================
-    print("forward: ")
     uv1 = uv.clone().requires_grad_()
     uv2 = uv.clone().requires_grad_()
     conic1 = conic.clone().requires_grad_()
@@ -159,6 +157,10 @@ if __name__ == "__main__":
     opacity2 = opacity.clone().requires_grad_()
     feature1 = feature.clone().requires_grad_()
     feature2 = feature.clone().requires_grad_()
+    
+    # ============================================ Forward =====================================
+    print("forward: ")
+    
     
     render_feature_torch = alpha_blending_torch_impl(
         uv1,

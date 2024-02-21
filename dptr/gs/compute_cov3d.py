@@ -1,4 +1,3 @@
-
 import torch
 from torch import Tensor
 from jaxtyping import Float, Bool
@@ -9,7 +8,7 @@ def compute_cov3d(
     scales: Float[Tensor, "P 3"],
     uquats: Float[Tensor, "P 4"],
     visible: Bool[Tensor, "P 1"] = None,
-)->Float[Tensor, "P 6"]:
+) -> Float[Tensor, "P 6"]:
     """
     Compute the 3D covariance matrix.
 
@@ -27,52 +26,30 @@ def compute_cov3d(
     cov3d : Float[Tensor, "P 6"]
         The upper-right corner of the 3D covariance matrix, stored in a vector.
     """
-    
+
     if visible is None:
         visible = torch.ones_like(scales[:, 0], dtype=torch.bool)
-    
-    return _ComputeCov3D.apply(
-        scales,
-        uquats,
-        visible
-    )
+
+    return _ComputeCov3D.apply(scales, uquats, visible)
 
 
 class _ComputeCov3D(torch.autograd.Function):
     @staticmethod
-    def forward(
-        ctx, 
-        scales, 
-        uquats, 
-        visible):
-        
-        cov3Ds = _C.compute_cov3d_forward(
-            scales, 
-            uquats, 
-            visible
-        )
-        
+    def forward(ctx, scales, uquats, visible):
+        cov3Ds = _C.compute_cov3d_forward(scales, uquats, visible)
+
         # save variables for backward
-        ctx.save_for_backward(
-            scales, 
-            uquats, 
-            visible)
-        
+        ctx.save_for_backward(scales, uquats, visible)
+
         return cov3Ds
 
     @staticmethod
     def backward(ctx, dL_dcov3Ds):
         # get saved variables from forward
         scales, uquats, visible = ctx.saved_tensors
-        
-        (
-            dL_dscales, 
-            dL_duquats
-        ) = _C.compute_cov3d_backward(
-            scales, 
-            uquats, 
-            visible, 
-            dL_dcov3Ds
+
+        (dL_dscales, dL_duquats) = _C.compute_cov3d_backward(
+            scales, uquats, visible, dL_dcov3Ds
         )
 
         grads = (

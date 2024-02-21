@@ -259,72 +259,19 @@ if __name__ == "__main__":
     W = camera.width
     
     with torch.no_grad():
-        (
-            uv,
-            depth 
-        ) = gs.project_point(
-            world.get_xyz, 
-            viewmat, 
+        rendered_feature = gs.rasterization(
+            world.get_xyz,
+            world.get_scaling,
+            world.get_rotation, 
+            world.get_opacity,
+            world.get_features,
+            viewmat,
             projmat,
             camparam,
-            W, H)
+            W, H, bg)
         
-        visible = depth != 0
-        
-        # compute cov3d
-        cov3d = gs.compute_cov3d(
-            world.get_scaling, 
-            world.get_rotation, 
-            visible)
-        
-        # ewa project
-        (
-            conic, 
-            radius, 
-            tiles
-        ) = gs.ewa_project(
-            world.get_xyz,
-            cov3d, 
-            viewmat,
-            camparam,
-            uv,
-            W, H,
-            visible
-        )
-        
-        # sort
-        (
-            idx_sorted, 
-            tile_range
-        ) = gs.sort_gaussian(
-            uv, 
-            depth, 
-            W, H, 
-            radius, 
-            tiles
-        )
-        
-        # alpha blending
-        # feature = torch.cat([depth, depth, depth], dim=-1)
-        feature = world.get_features
-        (
-            render_feature, 
-            final_T, 
-            ncontrib
-        ) = gs.alpha_blending(
-            uv, 
-            conic, 
-            world.get_opacity, 
-            feature,
-            idx_sorted, 
-            tile_range, 
-            bg, 
-            W, 
-            H
-        )
-        
-        show_image = render_feature.detach()
-        show_image = torch.clamp(show_image, 0.0, 1.0).permute(1, 2, 0).cpu().numpy()
-        show_image = (show_image * 255).astype(np.uint8)
-        imageio.imwrite("lego.png", show_image)
+    show_image = render_feature.detach()
+    show_image = torch.clamp(show_image, 0.0, 1.0).permute(1, 2, 0).cpu().numpy()
+    show_image = (show_image * 255).astype(np.uint8)
+    imageio.imwrite("lego.png", show_image)
         

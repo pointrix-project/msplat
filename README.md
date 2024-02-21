@@ -1,4 +1,4 @@
-# <p align="center"><span style="color:#024376;">D</span><span style="color:#5c92be;">P</span><span style="color:#a1c0d4;">T</span><span style="color:#f87e5d;">R</span>: <span style="color:#024376;">D</span>ifferentiable <span style="color:#5c92be;">P</span>oin<span style="color:#a1c0d4;">T</span> <span style="color:#f87e5d;">R</span>enderer</p>
+# DPTR: Differentiable PoinT Renderer
 <!-- ```
 Differentiable PoinT Renderer, backend for POINTRIX.
  ____  ____ _____ ____  
@@ -16,6 +16,21 @@ Differentiable PoinT Renderer, backend for POINTRIX.
 The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serves as the backend of [POINTRIX]() and is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
 ![dptr](media/media.gif)
 The logo of [DPTR](https://www.bing.com/images/create/a-logo-for-dptr-differentiable-point-renderer2c-w/1-65d4bedd4ab84dc2a0983d1137a2ae75?id=Aq9grH0ZLohkId7qqRf3xQ%3d%3d&view=detailv2&idpp=genimg&thId=OIG1.JGMYYbQ9W7pdur2USXGO&FORM=GCRIDP&mode=overlay) is desisned by [Microsoft Designer](https://designer.microsoft.com/).
+
+## How to install
+1. Install with source
+```shell
+# clone the code from github
+git clone https://github.com/NJU-3DV/DPTR.git
+cd DPTR
+# install dptr
+pip install .
+```
+
+2. Install with pip
+```shell
+pip install dptr
+```
 
 ## Tutorial: Fitting the logo with 3D Gaussian Splatting
 In this tutorial, we will demonstrate how to use DPTR to implement 3D Gaussian Splatting (3DGS) to fit the DPTR logo step by step. If you are not familiar with 3DGS, you can learn more about it through the original [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) project.
@@ -36,10 +51,11 @@ class SimpleGaussian:
         }
 ```
 
-Next, we set activation functions for each attribute to ensure that they always remain within reasonable bounds. For the scale, which must be greater than 0, we use the exponential function. For the RGB color and opacity, which are within the range of [0, 1], we choose the sigmoid function. As for rotation, represented using unit quaternions where the magnitude must be 1, we use normalization.
+Next, we set activation functions for each attribute to ensure that they always remain within reasonable bounds. For the scale, which must be greater than 0, we use the absolute values, not exponential functions, which are too steep. For the RGB color and opacity, which are within the range of [0, 1], we choose the sigmoid function. As for rotation, represented using unit quaternions where the magnitude must be 1, we use normalization function.
+
 ```python
         self._activations = {
-            "scale": torch.exp,
+            "scale": lambda x: torch.abs(x) + 1e-8,
             "rotate": torch.nn.functional.normalize,
             "opacity": torch.sigmoid,
             "rgb": torch.sigmoid
@@ -76,7 +92,7 @@ Then, we need a function to retrieve the attributes of the 3D Gaussian, returnin
 ### Read the target logo image
 Read the logo image, normalize it, and then convert it into a tensor with a shape of [C, H, W].
 ```python
-    image_file = "./media/DPTR.png"
+    image_file = "./media/dptr.png"
     img = np.array(Image.open(image_file))
     img = img.astype(np.float32) / 255.0
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
@@ -103,76 +119,25 @@ Create a 3D Gaussian point cloud and optimize it!
 ```python
     gaussians = SimpleGaussian(num_points=100000)
 
-    max_iter = 7000
+    max_iter = 2000
     frames = []
     progress_bar = tqdm(range(1, max_iter), desc="Training")
-    l1_loss = nn.L1Loss()
+    mse_loss = nn.MSELoss()
 
     for iteration in range(0, max_iter):
-        # project points
-        (
-            uv,
-            depth 
-        ) = gs.project_point(
-            gaussians.get_attribute("xyz"), 
-            viewmat, 
+        
+        rendered_feature = gs.rasterization(
+            gaussians.get_attribute("xyz"),
+            gaussians.get_attribute("scale"),
+            gaussians.get_attribute("rotate"), 
+            gaussians.get_attribute("opacity"),
+            gaussians.get_attribute("rgb"),
+            viewmat,
             projmat,
             camparam,
-            W, H)
+            W, H, bg)
         
-        visible = depth != 0
-        
-        # compute cov3d
-        cov3d = gs.compute_cov3d(
-            gaussians.get_attribute("scale"), 
-            gaussians.get_attribute("rotate"), 
-            visible)
-        
-        # ewa project
-        (
-            conic, 
-            radius, 
-            tiles
-        ) = gs.ewa_project(
-            gaussians.get_attribute("xyz"),
-            cov3d, 
-            viewmat,
-            camparam,
-            uv,
-            W, H,
-            visible
-        )
-        
-        # sort
-        (
-            idx_sorted, 
-            tile_range
-        ) = gs.sort_gaussian(
-            uv, 
-            depth, 
-            W, H, 
-            radius, 
-            tiles
-        )
-        
-        # alpha blending
-        (
-            render_feature, 
-            final_T, 
-            ncontrib
-        ) = gs.alpha_blending(
-            uv, 
-            conic, 
-            gaussians.get_attribute("opacity"), 
-            gaussians.get_attribute("rgb"), 
-            idx_sorted, 
-            tile_range, 
-            bg, 
-            W, 
-            H
-        )
-        
-        loss = l1_loss(render_feature, gt)
+        loss = mse_loss(render_feature, gt)
         loss.backward()
         
         gaussians.step()
@@ -180,7 +145,7 @@ Create a 3D Gaussian point cloud and optimize it!
         progress_bar.set_postfix({"Loss": f"{loss:.{7}f}"})
         progress_bar.update(1)
         
-        if iteration % 100 == 0:
+        if iteration % 20 == 0:
             show_data = render_feature.detach().permute(1, 2, 0)
             show_data = torch.clamp(show_data, 0.0, 1.0)
             frames.append((show_data.cpu().numpy() * 255).astype(np.uint8))
