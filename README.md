@@ -18,7 +18,7 @@ The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serves as the back
 The logo of [DPTR](https://www.bing.com/images/create/a-logo-for-dptr-differentiable-point-renderer2c-w/1-65d4bedd4ab84dc2a0983d1137a2ae75?id=Aq9grH0ZLohkId7qqRf3xQ%3d%3d&view=detailv2&idpp=genimg&thId=OIG1.JGMYYbQ9W7pdur2USXGO&FORM=GCRIDP&mode=overlay) is desisned by [Microsoft Designer](https://designer.microsoft.com/).
 
 ## How to install
-1. Install with source
+1. Install from source
 ```shell
 # clone the code from github
 git clone https://github.com/NJU-3DV/DPTR.git
@@ -27,7 +27,7 @@ cd DPTR
 pip install .
 ```
 
-2. Install with pip
+2. Install from pip
 ```shell
 pip install dptr
 ```

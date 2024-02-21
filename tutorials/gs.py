@@ -71,7 +71,7 @@ if __name__ == "__main__":
     
     gaussians = SimpleGaussian(num_points=100000)
     
-    max_iter = 2000
+    max_iter = 7000
     frames = []
     progress_bar = tqdm(range(1, max_iter), desc="Training")
     mse_loss = nn.MSELoss()
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         progress_bar.set_postfix({"Loss": f"{loss:.{7}f}"})
         progress_bar.update(1)
         
-        if iteration % 20 == 0:
+        if iteration % 100 == 0:
             show_data = rendered_feature.detach().permute(1, 2, 0)
             show_data = torch.clamp(show_data, 0.0, 1.0)
             frames.append((show_data.cpu().numpy() * 255).astype(np.uint8))
