@@ -7,9 +7,8 @@ import dptr.gs._C as _C
 
 def project_point(
     xyz: Float[Tensor, "P 3"],
-    viewmat: Float[Tensor, "4 4"],
-    projmat: Float[Tensor, "4 4"],
-    camparam: Float[Tensor, "4"],
+    intrinsic: Float[Tensor, "4"],
+    extrinsic: Float[Tensor, "3 4"],
     W: int,
     H: int,
     nearest: float = 0.2,
@@ -22,12 +21,10 @@ def project_point(
     ----------
     xyz : Float[Tensor, "P 3"]
         3D position for each point.
-    viewmat : Float[Tensor, "4 4"]
-        The world to view transform matrix.
-    projmat : Float[Tensor, "4 4"]
-        The world to screen transform matrix.
-    camparam : Float[Tensor, "4"]
-        The intrinsics of camera [fx, fy, cx, cy].
+    intrinsic : Float[Tensor, "4"]
+        The intrinsic parameters of camera [fx, fy, cx, cy].
+    extrinsic : Float[Tensor, "3 4"]
+        The extrinsic parameters of camera [R|T].
     W : int
         Width of the image.
     H : int
@@ -44,7 +41,7 @@ def project_point(
     depth: Float[Tensor, "P 1"]
         Depth for each point.
     """
-    return _ProjectPoint.apply(xyz, viewmat, projmat, camparam, W, H, nearest, extent)
+    return _ProjectPoint.apply(xyz, intrinsic, extrinsic, W, H, nearest, extent)
 
 
 class _ProjectPoint(torch.autograd.Function):
@@ -52,22 +49,21 @@ class _ProjectPoint(torch.autograd.Function):
     def forward(
         ctx,
         xyz: Float[Tensor, "*batch 3"],
-        viewmat: Float[Tensor, "4 4"],
-        projmat: Float[Tensor, "4 4"],
-        camparam: Float[Tensor, "4"],
+        intrinsic: Float[Tensor, "4"],
+        extrinsic: Float[Tensor, "3 4"],
         W: int,
         H: int,
         nearest: float,
         extent: float,
     ):
         (uv, depth) = _C.project_point_forward(
-            xyz, viewmat, projmat, camparam, W, H, nearest, extent
+            xyz, intrinsic, extrinsic, W, H, nearest, extent
         )
 
         # save variables for backward
         ctx.W = W
         ctx.H = H
-        ctx.save_for_backward(xyz, viewmat, projmat, camparam, uv, depth)
+        ctx.save_for_backward(xyz, intrinsic, extrinsic, uv, depth)
 
         return uv, depth
 
@@ -76,21 +72,19 @@ class _ProjectPoint(torch.autograd.Function):
         # get saved variables from forward
         H = ctx.H
         W = ctx.W
-        xyz, viewmat, projmat, camparam, uv, depth = ctx.saved_tensors
+        xyz, intrinsic, extrinsic, uv, depth, uv, depth = ctx.saved_tensors
 
-        dL_dxyz = _C.project_point_backward(
-            xyz, viewmat, projmat, camparam, W, H, uv, depth, dL_duv, dL_ddepth
+        (dL_dxyz, dL_dintrinsic, dL_dextrinsic) = _C.project_point_backward(
+            xyz, intrinsic, extrinsic, W, H, uv, depth, dL_duv, dL_ddepth
         )
 
         grads = (
             # loss gradient w.r.t xyz
             dL_dxyz,
-            # loss gradient w.r.t viewmat
-            None,
-            # loss gradient w.r.t projmat
-            None,
-            # loss gradient w.r.t camparam
-            None,
+            # loss gradient w.r.t intrinsic
+            dL_dintrinsic,
+            # loss gradient w.r.t extrinsic
+            dL_dextrinsic,
             # loss gradient w.r.t W
             None,
             # loss gradient w.r.t H
