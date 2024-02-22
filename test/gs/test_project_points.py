@@ -48,48 +48,29 @@ def project_point_torch_impl(
     
     return uv_masked, depth_masked.unsqueeze(-1)
 
-
-def random_rotation_matrix():
-    rot_vec = torch.randn(3)
-    rot_mat = torch.nn.functional.normalize(rot_vec, dim=0)
-
-    # rot_mat = torch.tensor([
-    #     [1, -rot_mat[2], rot_mat[1]],
-    #     [rot_mat[2], 1, -rot_mat[0]],
-    #     [-rot_mat[1], rot_mat[0], 1]
-    # ])
-
-    rot_mat = torch.tensor([
-        [1, 0, 0],
-        [0, 1, 0],
-        [0, 0, 1]
-    ])
-
-    return rot_mat
-
 if __name__ == "__main__":
     seed = 124
     torch.manual_seed(seed)
     
     iters = 10
-    N = 2
+    N = 100
     
     print("=============================== running test on project_points ===============================")
     
     W = 1600
     H = 1200
     
-    intr = torch.Tensor([1, 1, 0, 0]).cuda().float()
+    intr = torch.Tensor([2892.33, 2883.18, 823.205, 619.071]).cuda().float()
     extr = torch.Tensor([
-            [1, 0,  0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0]
+            [0.970263, 0.00747983, 0.241939, -191.02],
+            [-0.0147429, 0.999493, 0.0282234, 3.2883],
+            [-0.241605, -0.030951, 0.969881, 22.5401]
         ]).cuda().float()
 
     xyz = torch.rand((N, 3)).cuda()
-    xyz[:, 0] = xyz[:, 0] * 1600
-    xyz[:, 1] = xyz[:, 1] * 1200
-    xyz[:, 2] = xyz[:, 2] + 1
+    xyz[:, 0] = xyz[:, 0] * 500
+    xyz[:, 1] = xyz[:, 1] * 500
+    xyz[:, 2] = xyz[:, 2] * 400 + 400
 
     xyz1 = xyz.clone().requires_grad_()
     xyz2 = xyz.clone().requires_grad_()
@@ -146,6 +127,9 @@ if __name__ == "__main__":
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
 
+    print(extr1.grad)
+    print(extr2.grad)
+    print(extr1.grad - extr2.grad)
     torch.testing.assert_close(xyz1.grad, xyz2.grad)
     torch.testing.assert_close(intr1.grad, intr2.grad)
     torch.testing.assert_close(extr1.grad, extr2.grad)

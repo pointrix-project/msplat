@@ -102,13 +102,10 @@ __global__ void projectPointBackwardCUDAKernel(const int P,
 
     // dL_dintr
     if (dL_dintr != nullptr) {
-        printf("before: %f %f %f %f\n", dL_dintr[0], dL_dintr[1], dL_dintr[2], dL_dintr[3]);
         atomicAdd(&dL_dintr[0], tmp.x * norm1 * dL_duv[idx].x);
         atomicAdd(&dL_dintr[1], tmp.y * norm1 * dL_duv[idx].y);
         atomicAdd(&dL_dintr[2], dL_duv[idx].x);
         atomicAdd(&dL_dintr[3], dL_duv[idx].y);
-
-        printf("after: %f %f %f %f\n", dL_dintr[0], dL_dintr[1], dL_dintr[2], dL_dintr[3]);
     }
 
     // dL_dextr
