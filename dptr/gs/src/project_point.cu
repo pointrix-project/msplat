@@ -42,10 +42,12 @@ __global__ void projectPointForwardCUDAKernel(const int P,
 
     bool extent_culling = false;
     if (extent > 0) {
-        float x_limit = extent * W * 0.5;
-        float y_limit = extent * H * 0.5;
-        extent_culling = uvd.x < -x_limit || uvd.x > x_limit ||
-                         uvd.y < -y_limit || uvd.y > y_limit;
+        float x_limit_min = (1 - extent) * W * 0.5;
+        float x_limit_max = (1 + extent) * W * 0.5;
+        float y_limit_min = (1 - extent) * H * 0.5;
+        float y_limit_max = (1 + extent) * H * 0.5;
+        extent_culling = uvd.x < x_limit_min || uvd.x > x_limit_max ||
+                         uvd.y < y_limit_min || uvd.y > y_limit_max;
     }
     if (near_culling || extent_culling)
         return;
@@ -53,7 +55,6 @@ __global__ void projectPointForwardCUDAKernel(const int P,
     uv[idx] = {uvd.x, uvd.y};
     depth[idx] = uvd.z;
 }
-
 
 __global__ void projectPointBackwardCUDAKernel(const int P,
                                                const float3 *xyz,
@@ -66,8 +67,8 @@ __global__ void projectPointBackwardCUDAKernel(const int P,
                                                const float2 *dL_duv,
                                                const float *dL_ddepth,
                                                float3 *dL_dxyz,
-                                               float *dL_dintr,
-                                               float *dL_dextr) {
+                                               double *dL_dintr,
+                                               double *dL_dextr) {
     auto idx = cg::this_grid().thread_rank();
 
     // depth == 0 means culled
@@ -78,8 +79,10 @@ __global__ void projectPointBackwardCUDAKernel(const int P,
     float3 tmp = {extr[0] * p.x + extr[1] * p.y + extr[2] * p.z + extr[3],
                   extr[4] * p.x + extr[5] * p.y + extr[6] * p.z + extr[7],
                   extr[8] * p.x + extr[9] * p.y + extr[10] * p.z + extr[11]};
-    float norm1 = 1.0 / (tmp.z + 1e-7);
-    float norm2 = 1.0 / (tmp.z * tmp.z + 1e-7);
+    
+    // tmp.z is depth[idx] != 0
+    float norm1 = 1.0 / tmp.z;
+    float norm2 = 1.0 / tmp.z * tmp.z;
 
     // dL_dxyz
     dL_dxyz[idx].x +=
@@ -120,6 +123,7 @@ __global__ void projectPointBackwardCUDAKernel(const int P,
         atomicAdd(&dL_dextr[6], intr[1] * p.z * norm1 * dL_duv[idx].y);
         atomicAdd(&dL_dextr[7], intr[1] * norm1 * dL_duv[idx].y);
 
+        // may be bugs?
         atomicAdd(&dL_dextr[8], -intr[0] * p.x * tmp.x * norm2 * dL_duv[idx].x);
         atomicAdd(&dL_dextr[8], -intr[1] * p.x * tmp.y * norm2 * dL_duv[idx].y);
         atomicAdd(&dL_dextr[8], p.x * dL_ddepth[idx]);
@@ -128,8 +132,10 @@ __global__ void projectPointBackwardCUDAKernel(const int P,
         atomicAdd(&dL_dextr[9], -intr[1] * p.y * tmp.y * norm2 * dL_duv[idx].y);
         atomicAdd(&dL_dextr[9], p.y * dL_ddepth[idx]);
 
-        atomicAdd(&dL_dextr[10], -intr[0] * p.z * tmp.x * norm2 * dL_duv[idx].x);
-        atomicAdd(&dL_dextr[10], -intr[1] * p.z * tmp.y * norm2 * dL_duv[idx].y);
+        atomicAdd(&dL_dextr[10],
+                  -intr[0] * p.z * tmp.x * norm2 * dL_duv[idx].x);
+        atomicAdd(&dL_dextr[10],
+                  -intr[1] * p.z * tmp.y * norm2 * dL_duv[idx].y);
         atomicAdd(&dL_dextr[10], p.z * dL_ddepth[idx]);
 
         atomicAdd(&dL_dextr[11], -intr[0] * tmp.x * norm2 * dL_duv[idx].x);
@@ -188,17 +194,18 @@ projectPointsBackward(const torch::Tensor &xyz,
 
     const int P = xyz.size(0);
     auto float_opts = xyz.options().dtype(torch::kFloat32);
+    auto double_opts = xyz.options().dtype(torch::kFloat64);
     torch::Tensor dL_dxyz = torch::zeros({P, 3}, float_opts);
-    torch::Tensor dL_dintr = torch::zeros({4}, float_opts);
-    torch::Tensor dL_dextr = torch::zeros({3, 4}, float_opts);
+    torch::Tensor dL_dintr = torch::zeros({4}, double_opts);
+    torch::Tensor dL_dextr = torch::zeros({3, 4}, double_opts);
 
-    float *dL_dintr_ptr = nullptr;
+    double *dL_dintr_ptr = nullptr;
     if (intr.requires_grad())
-        dL_dintr_ptr = dL_dintr.data_ptr<float>();
+        dL_dintr_ptr = dL_dintr.data_ptr<double>();
 
-    float *dL_dextr_ptr = nullptr;
+    double *dL_dextr_ptr = nullptr;
     if (extr.requires_grad())
-        dL_dextr_ptr = dL_dextr.data_ptr<float>();
+        dL_dextr_ptr = dL_dextr.data_ptr<double>();
 
     if (P != 0) {
         projectPointBackwardCUDAKernel<<<(P + 255) / 256, 256>>>(

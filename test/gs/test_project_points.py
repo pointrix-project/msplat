@@ -30,16 +30,19 @@ def project_point_torch_impl(
     p_proj = torch.matmul(K, pt_cam)
 
     depth = p_proj[2]
-    uv = p_proj[:2] / (depth + 1e-7) - 0.5
+    uv = p_proj[:2] / depth - 0.5
 
     uv = uv.t()
     
+    depth = torch.nan_to_num(depth)
     near_mask = depth <= nearest
-    extent_mask_x = torch.logical_or(uv[:, 0] < -extent * W * 0.5, uv[:, 0] > extent * W * 0.5)
-    extent_mask_y = torch.logical_or(uv[:, 1] < -extent * H * 0.5, uv[:, 1] > extent * H * 0.5)
+    extent_mask_x = torch.logical_or(uv[:, 0] < (1 - extent) * W * 0.5, 
+                                     uv[:, 0] > (1 + extent) * W * 0.5)
+    extent_mask_y = torch.logical_or(uv[:, 1] < (1 - extent) * H * 0.5, 
+                                     uv[:, 1] > (1 + extent) * H * 0.5)
     extent_mask = torch.logical_or(extent_mask_x, extent_mask_y)
     mask = torch.logical_or(near_mask, extent_mask)
-    
+
     uv_masked = uv.clone()
     depth_masked = depth.clone()
     uv_masked[:, 0][mask] = 0
@@ -51,9 +54,10 @@ def project_point_torch_impl(
 if __name__ == "__main__":
     seed = 124
     torch.manual_seed(seed)
+    torch.set_printoptions(precision=20)
     
-    iters = 10
-    N = 100
+    iters = 1
+    N = 10000
     
     print("=============================== running test on project_points ===============================")
     
@@ -66,7 +70,7 @@ if __name__ == "__main__":
             [-0.0147429, 0.999493, 0.0282234, 3.2883],
             [-0.241605, -0.030951, 0.969881, 22.5401]
         ]).cuda().float()
-
+    
     xyz = torch.rand((N, 3)).cuda()
     xyz[:, 0] = xyz[:, 0] * 500
     xyz[:, 1] = xyz[:, 1] * 500
@@ -127,9 +131,8 @@ if __name__ == "__main__":
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
 
-    print(extr1.grad)
-    print(extr2.grad)
-    print(extr1.grad - extr2.grad)
+    print(torch.min(extr1.grad - extr2.grad))
+    print(torch.max(extr1.grad - extr2.grad))
     torch.testing.assert_close(xyz1.grad, xyz2.grad)
     torch.testing.assert_close(intr1.grad, intr2.grad)
     torch.testing.assert_close(extr1.grad, extr2.grad)
