@@ -9,15 +9,8 @@
 #include <torch/torch.h>
 #include <utils.h>
 
-
 namespace cg = cooperative_groups;
 
-/**
- * @brief Helper function: transform a scaling vector to matrix
- *
- * @param[in] scale     Scaling vector
- * @return Scaling Matrix
- */
 __device__ inline glm::mat3 scale_vector_to_matrix(const glm::vec3 scale) {
     glm::mat3 S = glm::mat3(1.0f);
 
@@ -28,12 +21,6 @@ __device__ inline glm::mat3 scale_vector_to_matrix(const glm::vec3 scale) {
     return S;
 }
 
-/**
- * @brief Helper function: transform a unit quaternion to rotmatrix
- *
- * @param[in] uquat    Unit quaternion
- * @return Rotation matrix
- */
 __device__ inline glm::mat3
 unit_quaternion_to_rotmatrix(const glm::vec4 uquat) {
     float r = uquat.x;
@@ -52,15 +39,6 @@ unit_quaternion_to_rotmatrix(const glm::vec4 uquat) {
                      1.f - 2.f * (x * x + y * y));
 }
 
-/**
- * @brief Forward process on the device: converting the scaling and rotation
- *        of a 3D Gaussian into a covariance matrix.
- *
- * @param[in] scale    Scaling vector
- * @param[in] quat     Unit quaternion
- * @param[out] cov3D   Covariance vector, the upper right part of the covariance
- * matrix
- */
 __device__ void compute_cov3d_forward(const glm::vec3 scale,
                                       const glm::vec4 quat,
                                       float *cov3D) {
@@ -79,16 +57,6 @@ __device__ void compute_cov3d_forward(const glm::vec3 scale,
     cov3D[5] = Sigma[2][2];
 }
 
-/**
- * @brief Backward process on the device: converting the scaling and rotation
- *        of a 3D Gaussian into a covariance matrix.
- *
- * @param[in] scale       Scaling vector
- * @param[in] quat        Unit quaternion
- * @param[in] dL_dcov3D   loss gradient w.r.t. covariance vector
- * @param[out] dL_dscale  loss gradient w.r.t. scale vector
- * @param[out] dL_dquat   loss gradient w.r.t. unit quaternion
- */
 __device__ void compute_cov3_backward(const glm::vec3 scale,
                                       const glm::vec4 quat,
                                       const float *dL_dcov3D,
@@ -148,17 +116,6 @@ __device__ void compute_cov3_backward(const glm::vec3 scale,
                  4 * z * (dL_dMt[1][1] + dL_dMt[0][0]);
 }
 
-/**
- * @brief CUDA kernel for computing 3D covariance matrices in a forward pass.
- *
- * @param[in] P                   Number of points to process.
- * @param[in] scales              Array of 3D scales for each point.
- * @param[in] uquats              Array of 3D rotations (unit quaternions) for
- * each point.
- * @param[in] visible   Array indicating the visibility status of each point.
- * @param[out] cov3Ds             Output array for storing the computed 3D
- * covariance vectors.
- */
 __global__ void computeCov3DForwardCUDAKernel(const int P,
                                               const glm::vec3 *scales,
                                               const glm::vec4 *uquats,
@@ -171,22 +128,6 @@ __global__ void computeCov3DForwardCUDAKernel(const int P,
     compute_cov3d_forward(scales[idx], uquats[idx], cov3Ds + 6 * idx);
 }
 
-/**
- * @brief CUDA kernel for computing gradients in a backward pass of 3D
- * covariance computation.
- *
- * @param[in] P                    Number of points to process.
- * @param[in] scales               Array of 3D scales for each point.
- * @param[in] uquats               Array of 3D rotations (unit quaternions) for
- * each point.
- * @param[in] visible    Array indicating the visibility status of each point.
- * @param[in] dL_dcov3Ds           Gradients of the loss with respect to the 3D
- * covariance matrices.
- * @param[out] dL_dscales          Output array for storing the gradients of the
- * loss with respect to scales.
- * @param[out] dL_duquats          Output array for storing the gradients of the
- * loss with respect to unit quaternions.
- */
 __global__ void computeCov3DBackwardCUDAKernel(const int P,
                                                const glm::vec3 *scales,
                                                const glm::vec4 *uquats,

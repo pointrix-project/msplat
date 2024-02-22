@@ -8,122 +8,150 @@
 #include <torch/torch.h>
 #include <utils.h>
 
-
 namespace cg = cooperative_groups;
 
-/**
- * @brief CUDA kernel for projecting points onto the screen in a forward pass.
- *
- * @param[in] P             Number of points
- * @param[in] xyz           Coordinates of the points
- * @param[in] viewmat       Camera's view matrix, transforms points from world
- * coordinates to camera coordinates
- * @param[in] projmat       Camera's projection matrix, transforms points from
- * world coordinates to normalized device coordinates (NDC)
- * @param[in] camparam      Camera parameters, [fx, fy, cx, cy]
- * @param[in] W             Width of the image
- * @param[in] H             Height of the image
- * @param[out] uv           Coordinates of the points on the image
- * @param[out] depths       Depths of the points
- * @param[in] nearest       Culling points with depth less than this value
- * @param[in] extent        Culling points outside the extent
- */
 __global__ void projectPointForwardCUDAKernel(const int P,
-                                              const float *xyz,
-                                              const float *viewmat,
-                                              const float *projmat,
-                                              const float *camparam,
+                                              const float3 *xyz,
+                                              const float *intr,
+                                              const float *extr,
                                               const int W,
                                               const int H,
                                               float2 *uv,
-                                              float *depths,
+                                              float *depth,
                                               const float nearest,
                                               const float extent) {
     auto idx = cg::this_grid().thread_rank();
     if (idx >= P)
         return;
 
-    float3 pt = {xyz[3 * idx], xyz[3 * idx + 1], xyz[3 * idx + 2]};
+    float3 p = xyz[idx];
+    float3 tmp = {extr[0] * p.x + extr[1] * p.y + extr[2] * p.z + extr[3],
+                  extr[4] * p.x + extr[5] * p.y + extr[6] * p.z + extr[7],
+                  extr[8] * p.x + extr[9] * p.y + extr[10] * p.z + extr[11]};
+    float norm1 = 1.0 / (tmp.z + 1e-7);
 
-    float4 p_hom = transform_point_4x4(projmat, pt);
-    float p_w = 1.0f / (p_hom.w + 1e-7);
-    float3 p_proj = {p_hom.x * p_w, p_hom.y * p_w, p_hom.z * p_w};
+    // to pixel coordinate
+    float3 uvd = {intr[0] * tmp.x * norm1 + intr[2] - 0.5,
+                  intr[1] * tmp.y * norm1 + intr[3] - 0.5,
+                  tmp.z};
 
-    float3 p_view = transform_point_4x3(viewmat, pt);
+    // perform culling
+    bool near_culling = false;
+    if (nearest > 0)
+        near_culling = uvd.z <= nearest;
 
-    bool near_culling = p_view.z <= nearest;
     bool extent_culling = false;
-    if (extent > 0)
-        extent_culling = p_proj.x < -extent || p_proj.x > extent ||
-                         p_proj.y < -extent || p_proj.y > extent;
-
+    if (extent > 0) {
+        float x_limit = extent * W * 0.5;
+        float y_limit = extent * H * 0.5;
+        extent_culling = uvd.x < -x_limit || uvd.x > x_limit ||
+                         uvd.y < -y_limit || uvd.y > y_limit;
+    }
     if (near_culling || extent_culling)
         return;
 
-    uv[idx] = {ndc_to_pixel(p_proj.x, W, camparam[2]),
-               ndc_to_pixel(p_proj.y, H, camparam[3])};
-    depths[idx] = p_view.z;
+    uv[idx] = {uvd.x, uvd.y};
+    depth[idx] = uvd.z;
 }
 
+
 __global__ void projectPointBackwardCUDAKernel(const int P,
-                                               const float *xyz,
-                                               const float *viewmat,
-                                               const float *projmat,
-                                               const float *camparam,
+                                               const float3 *xyz,
+                                               const float *intr,
+                                               const float *extr,
                                                const int W,
                                                const int H,
                                                const float2 *uv,
                                                const float *depth,
                                                const float2 *dL_duv,
                                                const float *dL_ddepth,
-                                               float3 *dL_dxyz) {
+                                               float3 *dL_dxyz,
+                                               float *dL_dintr,
+                                               float *dL_dextr) {
     auto idx = cg::this_grid().thread_rank();
 
     // depth == 0 means culled
     if (idx >= P || depth[idx] == 0)
         return;
 
-    float3 dL_dxyz_idx;
-    dL_dxyz_idx.x = dL_ddepth[idx] * viewmat[2];
-    dL_dxyz_idx.y = dL_ddepth[idx] * viewmat[6];
-    dL_dxyz_idx.z = dL_ddepth[idx] * viewmat[10];
+    float3 p = xyz[idx];
+    float3 tmp = {extr[0] * p.x + extr[1] * p.y + extr[2] * p.z + extr[3],
+                  extr[4] * p.x + extr[5] * p.y + extr[6] * p.z + extr[7],
+                  extr[8] * p.x + extr[9] * p.y + extr[10] * p.z + extr[11]};
+    float norm1 = 1.0 / (tmp.z + 1e-7);
+    float norm2 = 1.0 / (tmp.z * tmp.z + 1e-7);
 
-    // dpw_dx
-    float3 pt = {xyz[3 * idx], xyz[3 * idx + 1], xyz[3 * idx + 2]};
-    float4 p_hom = transform_point_4x4(projmat, pt);
-    float pw = 1.0f / (p_hom.w + 1e-7);
+    // dL_dxyz
+    dL_dxyz[idx].x +=
+        (intr[0] * (extr[0] * tmp.z - tmp.x * extr[8]) * norm2) * dL_duv[idx].x;
+    dL_dxyz[idx].x +=
+        (intr[1] * (extr[4] * tmp.z - tmp.y * extr[8]) * norm2) * dL_duv[idx].y;
+    dL_dxyz[idx].x += extr[8] * dL_ddepth[idx];
 
-    float2 dL_dndc = {0.5 * W * dL_duv[idx].x, 0.5 * H * dL_duv[idx].y};
+    dL_dxyz[idx].y +=
+        (intr[0] * (extr[1] * tmp.z - tmp.x * extr[9]) * norm2) * dL_duv[idx].x;
+    dL_dxyz[idx].y +=
+        (intr[1] * (extr[5] * tmp.z - tmp.y * extr[9]) * norm2) * dL_duv[idx].y;
+    dL_dxyz[idx].y += extr[9] * dL_ddepth[idx];
 
-    float3 dpw_dxyz;
-    dpw_dxyz.x = -pw * pw * projmat[3];
-    dpw_dxyz.y = -pw * pw * projmat[7];
-    dpw_dxyz.z = -pw * pw * projmat[11];
+    dL_dxyz[idx].z += (intr[0] * (extr[2] * tmp.z - tmp.x * extr[10]) * norm2) *
+                      dL_duv[idx].x;
+    dL_dxyz[idx].z += (intr[1] * (extr[6] * tmp.z - tmp.y * extr[10]) * norm2) *
+                      dL_duv[idx].y;
+    dL_dxyz[idx].z += extr[10] * dL_ddepth[idx];
 
-    dL_dxyz_idx.x += dL_dndc.x * (projmat[0] * pw + p_hom.x * dpw_dxyz.x);
-    dL_dxyz_idx.y += dL_dndc.x * (projmat[4] * pw + p_hom.x * dpw_dxyz.y);
-    dL_dxyz_idx.z += dL_dndc.x * (projmat[8] * pw + p_hom.x * dpw_dxyz.z);
+    // dL_dintr
+    if (dL_dintr != nullptr) {
+        printf("before: %f %f %f %f\n", dL_dintr[0], dL_dintr[1], dL_dintr[2], dL_dintr[3]);
+        atomicAdd(&dL_dintr[0], tmp.x * norm1 * dL_duv[idx].x);
+        atomicAdd(&dL_dintr[1], tmp.y * norm1 * dL_duv[idx].y);
+        atomicAdd(&dL_dintr[2], dL_duv[idx].x);
+        atomicAdd(&dL_dintr[3], dL_duv[idx].y);
 
-    dL_dxyz_idx.x += dL_dndc.y * (projmat[1] * pw + p_hom.y * dpw_dxyz.x);
-    dL_dxyz_idx.y += dL_dndc.y * (projmat[5] * pw + p_hom.y * dpw_dxyz.y);
-    dL_dxyz_idx.z += dL_dndc.y * (projmat[9] * pw + p_hom.y * dpw_dxyz.z);
+        printf("after: %f %f %f %f\n", dL_dintr[0], dL_dintr[1], dL_dintr[2], dL_dintr[3]);
+    }
 
-    dL_dxyz[idx] = dL_dxyz_idx;
+    // dL_dextr
+    if (dL_dextr != nullptr) {
+        atomicAdd(&dL_dextr[0], intr[0] * p.x * norm1 * dL_duv[idx].x);
+        atomicAdd(&dL_dextr[1], intr[0] * p.y * norm1 * dL_duv[idx].x);
+        atomicAdd(&dL_dextr[2], intr[0] * p.z * norm1 * dL_duv[idx].x);
+        atomicAdd(&dL_dextr[3], intr[0] * norm1 * dL_duv[idx].x);
+
+        atomicAdd(&dL_dextr[4], intr[1] * p.x * norm1 * dL_duv[idx].y);
+        atomicAdd(&dL_dextr[5], intr[1] * p.y * norm1 * dL_duv[idx].y);
+        atomicAdd(&dL_dextr[6], intr[1] * p.z * norm1 * dL_duv[idx].y);
+        atomicAdd(&dL_dextr[7], intr[1] * norm1 * dL_duv[idx].y);
+
+        atomicAdd(&dL_dextr[8], -intr[0] * p.x * tmp.x * norm2 * dL_duv[idx].x);
+        atomicAdd(&dL_dextr[8], -intr[1] * p.x * tmp.y * norm2 * dL_duv[idx].y);
+        atomicAdd(&dL_dextr[8], p.x * dL_ddepth[idx]);
+
+        atomicAdd(&dL_dextr[9], -intr[0] * p.y * tmp.x * norm2 * dL_duv[idx].x);
+        atomicAdd(&dL_dextr[9], -intr[1] * p.y * tmp.y * norm2 * dL_duv[idx].y);
+        atomicAdd(&dL_dextr[9], p.y * dL_ddepth[idx]);
+
+        atomicAdd(&dL_dextr[10], -intr[0] * p.z * tmp.x * norm2 * dL_duv[idx].x);
+        atomicAdd(&dL_dextr[10], -intr[1] * p.z * tmp.y * norm2 * dL_duv[idx].y);
+        atomicAdd(&dL_dextr[10], p.z * dL_ddepth[idx]);
+
+        atomicAdd(&dL_dextr[11], -intr[0] * tmp.x * norm2 * dL_duv[idx].x);
+        atomicAdd(&dL_dextr[11], -intr[1] * tmp.y * norm2 * dL_duv[idx].y);
+        atomicAdd(&dL_dextr[11], dL_ddepth[idx]);
+    }
 }
 
 std::tuple<torch::Tensor, torch::Tensor>
 projectPointsForward(const torch::Tensor &xyz,
-                     const torch::Tensor &viewmat,
-                     const torch::Tensor &projmat,
-                     const torch::Tensor &camparam,
+                     const torch::Tensor &intr,
+                     const torch::Tensor &extr,
                      const int W,
                      const int H,
                      const float nearest,
                      const float extent) {
     CHECK_INPUT(xyz);
-    CHECK_INPUT(viewmat);
-    CHECK_INPUT(projmat);
-    CHECK_INPUT(camparam);
+    CHECK_INPUT(intr);
+    CHECK_INPUT(extr);
 
     const int P = xyz.size(0);
     auto float_opts = xyz.options().dtype(torch::kFloat32);
@@ -133,10 +161,9 @@ projectPointsForward(const torch::Tensor &xyz,
     if (P != 0) {
         projectPointForwardCUDAKernel<<<(P + 255) / 256, 256>>>(
             P,
-            xyz.contiguous().data_ptr<float>(),
-            viewmat.contiguous().data_ptr<float>(),
-            projmat.contiguous().data_ptr<float>(),
-            camparam.contiguous().data_ptr<float>(),
+            (float3 *)xyz.contiguous().data_ptr<float>(),
+            intr.contiguous().data_ptr<float>(),
+            extr.contiguous().data_ptr<float>(),
             W,
             H,
             (float2 *)uv.data_ptr<float>(),
@@ -148,40 +175,50 @@ projectPointsForward(const torch::Tensor &xyz,
     return std::make_tuple(uv, depth);
 }
 
-torch::Tensor projectPointsBackward(const torch::Tensor &xyz,
-                                    const torch::Tensor &viewmat,
-                                    const torch::Tensor &projmat,
-                                    const torch::Tensor &camparam,
-                                    const int W,
-                                    const int H,
-                                    const torch::Tensor &uv,
-                                    const torch::Tensor &depth,
-                                    const torch::Tensor &dL_duv,
-                                    const torch::Tensor &dL_ddepth) {
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>
+projectPointsBackward(const torch::Tensor &xyz,
+                      const torch::Tensor &intr,
+                      const torch::Tensor &extr,
+                      const int W,
+                      const int H,
+                      const torch::Tensor &uv,
+                      const torch::Tensor &depth,
+                      const torch::Tensor &dL_duv,
+                      const torch::Tensor &dL_ddepth) {
     CHECK_INPUT(xyz);
-    CHECK_INPUT(viewmat);
-    CHECK_INPUT(projmat);
-    CHECK_INPUT(camparam);
+    CHECK_INPUT(intr);
+    CHECK_INPUT(extr);
 
     const int P = xyz.size(0);
     auto float_opts = xyz.options().dtype(torch::kFloat32);
     torch::Tensor dL_dxyz = torch::zeros({P, 3}, float_opts);
+    torch::Tensor dL_dintr = torch::zeros({4}, float_opts);
+    torch::Tensor dL_dextr = torch::zeros({3, 4}, float_opts);
+
+    float *dL_dintr_ptr = nullptr;
+    if (intr.requires_grad())
+        dL_dintr_ptr = dL_dintr.data_ptr<float>();
+
+    float *dL_dextr_ptr = nullptr;
+    if (extr.requires_grad())
+        dL_dextr_ptr = dL_dextr.data_ptr<float>();
 
     if (P != 0) {
         projectPointBackwardCUDAKernel<<<(P + 255) / 256, 256>>>(
             P,
-            xyz.contiguous().data_ptr<float>(),
-            viewmat.contiguous().data_ptr<float>(),
-            projmat.contiguous().data_ptr<float>(),
-            camparam.contiguous().data_ptr<float>(),
+            (float3 *)xyz.contiguous().data_ptr<float>(),
+            intr.contiguous().data_ptr<float>(),
+            extr.contiguous().data_ptr<float>(),
             W,
             H,
             (float2 *)uv.contiguous().data_ptr<float>(),
             depth.contiguous().data_ptr<float>(),
             (float2 *)dL_duv.contiguous().data_ptr<float>(),
             dL_ddepth.contiguous().data_ptr<float>(),
-            (float3 *)dL_dxyz.data_ptr<float>());
+            (float3 *)dL_dxyz.data_ptr<float>(),
+            dL_dintr_ptr,
+            dL_dextr_ptr);
     }
 
-    return dL_dxyz;
+    return std::make_tuple(dL_dxyz, dL_dintr, dL_dextr);
 }

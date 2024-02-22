@@ -5,105 +5,98 @@ import torch
 import dptr.gs as gs
 
 
-def ndc_to_pixel(ndc, size, pp):
-    return 0.5 * size * ndc + pp - 0.5
-
-
 def project_point_torch_impl(
     xyz, 
-    viewmat, 
-    projmat,
-    camparam,
+    intr, 
+    extr,
     W,
     H,
     nearest=0.2,
     extent=1.3
 ):
-    viewmat = viewmat.transpose(0, 1)
-    projmat = projmat.transpose(0, 1)
     
-    tmp_one = torch.ones_like(xyz[:, 0:1])
-    xyz_hom = torch.cat([xyz, tmp_one], dim=-1)
+    K = torch.eye(3).cuda()
+    K[0, 0] = intr[0]
+    K[1, 1] = intr[1]
+    K[0, 2] = intr[2]
+    K[1, 2] = intr[3]
+
+    R = extr[:3, :3]
+    t = extr[:3, -1].unsqueeze(dim=1)
     
-    p_hom = torch.bmm(projmat.unsqueeze(0).repeat(xyz.shape[0], 1, 1), xyz_hom.unsqueeze(-1)).squeeze(-1)
-    p_w = 1.0 / (p_hom[:, -1].unsqueeze(-1) + 1e-7)
-    p_proj = p_hom * p_w
+    pt_cam = torch.matmul(R, xyz.t()) + t
     
-    p_view = torch.bmm(viewmat.unsqueeze(0).repeat(xyz.shape[0], 1, 1), xyz_hom.unsqueeze(-1)).squeeze(-1)
-    
-    uv = torch.stack([ndc_to_pixel(p_proj[:, 0], W, camparam[2]), 
-                      ndc_to_pixel(p_proj[:, 1], H, camparam[3])], dim=-1)
-    depth = p_view[:, -2]
+    # Apply camera intrinsic matrix
+    p_proj = torch.matmul(K, pt_cam)
+
+    depth = p_proj[2]
+    uv = p_proj[:2] / (depth + 1e-7) - 0.5
+
+    uv = uv.t()
     
     near_mask = depth <= nearest
-    extent_mask_x = torch.logical_or(p_proj[:, 0] < -extent, p_proj[:, 0] > extent)
-    extent_mask_y = torch.logical_or(p_proj[:, 1] < -extent, p_proj[:, 1] > extent)
+    extent_mask_x = torch.logical_or(uv[:, 0] < -extent * W * 0.5, uv[:, 0] > extent * W * 0.5)
+    extent_mask_y = torch.logical_or(uv[:, 1] < -extent * H * 0.5, uv[:, 1] > extent * H * 0.5)
     extent_mask = torch.logical_or(extent_mask_x, extent_mask_y)
     mask = torch.logical_or(near_mask, extent_mask)
     
-    uv[:, 0][mask] = 0
-    uv[:, 1][mask] = 0
-    depth[mask] = 0
+    uv_masked = uv.clone()
+    depth_masked = depth.clone()
+    uv_masked[:, 0][mask] = 0
+    uv_masked[:, 1][mask] = 0
+    depth_masked[mask] = 0
     
-    return uv, depth.unsqueeze(-1)
+    return uv_masked, depth_masked.unsqueeze(-1)
 
 
-def getProjectionMatrix(fovX, fovY, znear=0.01, zfar=100):
-    tanHalfFovY = math.tan((fovY / 2))
-    tanHalfFovX = math.tan((fovX / 2))
+def random_rotation_matrix():
+    rot_vec = torch.randn(3)
+    rot_mat = torch.nn.functional.normalize(rot_vec, dim=0)
 
-    top = tanHalfFovY * znear
-    bottom = -top
-    right = tanHalfFovX * znear
-    left = -right
+    # rot_mat = torch.tensor([
+    #     [1, -rot_mat[2], rot_mat[1]],
+    #     [rot_mat[2], 1, -rot_mat[0]],
+    #     [-rot_mat[1], rot_mat[0], 1]
+    # ])
 
-    P = torch.zeros(4, 4).cuda()
-    
-    z_sign = 1.0
+    rot_mat = torch.tensor([
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1]
+    ])
 
-    P[0, 0] = 2.0 * znear / (right - left)
-    P[1, 1] = 2.0 * znear / (top - bottom)
-    P[0, 2] = (right + left) / (right - left)
-    P[1, 2] = (top + bottom) / (top - bottom)
-    P[3, 2] = z_sign
-    P[2, 2] = z_sign * zfar / (zfar - znear)
-    P[2, 3] = -(zfar * znear) / (zfar - znear)
-    
-    return P
-
-def fov2focal(fov, pixels):
-    return pixels / (2 * math.tan(fov / 2))
+    return rot_mat
 
 if __name__ == "__main__":
-    # seed = 121
-    # torch.manual_seed(seed)
+    seed = 124
+    torch.manual_seed(seed)
     
     iters = 10
-    N = 200000
+    N = 2
     
     print("=============================== running test on project_points ===============================")
     
-    W = 800
-    H = 800
+    W = 1600
+    H = 1200
     
-    fovx = 0.6911112070083618
-    fovy = 0.6911112070083618
-    
-    fx = fov2focal(fovx, W)
-    fy = fov2focal(fovy, H)
-    
-    viewmat = torch.Tensor([[6.1182e-01,  7.9096e-01, -6.7348e-03,  0.0000e+00], 
-                            [ 7.9099e-01, -6.1180e-01,  5.2093e-03,  0.0000e+00], 
-                            [ 1.3906e-14, -8.5126e-03, -9.9996e-01,  0.0000e+00], 
-                            [ 1.1327e-09,  1.0458e-09,  4.0311e+00,  1.0000e+00]]).cuda()
-    projmat = getProjectionMatrix(fovx, fovy).transpose(0, 1)
-    full_proj_transform = (viewmat.unsqueeze(0).bmm(projmat.unsqueeze(0))).squeeze(0)
-    
-    camparam = torch.Tensor([fx, fy, 0.0, 0.0]).cuda()
-    xyz = torch.randn((N, 3)).cuda() * 2.6 - 1.3
-    
+    intr = torch.Tensor([1, 1, 0, 0]).cuda().float()
+    extr = torch.Tensor([
+            [1, 0,  0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0]
+        ]).cuda().float()
+
+    xyz = torch.rand((N, 3)).cuda()
+    xyz[:, 0] = xyz[:, 0] * 1600
+    xyz[:, 1] = xyz[:, 1] * 1200
+    xyz[:, 2] = xyz[:, 2] + 1
+
     xyz1 = xyz.clone().requires_grad_()
     xyz2 = xyz.clone().requires_grad_()
+    intr1 = intr.clone().requires_grad_()
+    intr2 = intr.clone().requires_grad_()
+    extr1 = extr.clone().requires_grad_()
+    extr2 = extr.clone().requires_grad_()
     
     # ============================================ Forward =====================================
     print("forward: ")
@@ -114,9 +107,8 @@ if __name__ == "__main__":
             out_pytorch_depth
         ) = project_point_torch_impl(
             xyz1, 
-            viewmat, 
-            full_proj_transform,
-            camparam,
+            intr1, 
+            extr1,
             W, H)
         
     torch.cuda.synchronize()
@@ -129,18 +121,15 @@ if __name__ == "__main__":
             out_cuda_depth 
         ) = gs.project_point(
             xyz2, 
-            viewmat, 
-            full_proj_transform,
-            camparam,
+            intr2, 
+            extr2,
             W, H)
     
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
 
-    # print(out_pytorch_uv, out_cuda_uv)
-    
-    torch.testing.assert_close(out_pytorch_uv, out_cuda_uv, rtol=1e-5, atol=1e-4)
-    torch.testing.assert_close(out_pytorch_depth, out_cuda_depth, rtol=1e-5, atol=1e-4)
+    torch.testing.assert_close(out_pytorch_uv, out_cuda_uv)
+    torch.testing.assert_close(out_pytorch_depth, out_cuda_depth)
     print("Forward pass.")
     
     # ============================================ Backward =====================================
@@ -157,5 +146,7 @@ if __name__ == "__main__":
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
 
-    torch.testing.assert_close(xyz1.grad, xyz2.grad, rtol=1e-5, atol=1e-4)
+    torch.testing.assert_close(xyz1.grad, xyz2.grad)
+    torch.testing.assert_close(intr1.grad, intr2.grad)
+    torch.testing.assert_close(extr1.grad, extr2.grad)
     print("Backward pass.")
