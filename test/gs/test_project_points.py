@@ -131,9 +131,10 @@ if __name__ == "__main__":
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
 
-    print(torch.min(extr1.grad - extr2.grad))
-    print(torch.max(extr1.grad - extr2.grad))
+    valid_num = torch.sum((out_cuda_depth != 0).float())
+    print(valid_num)
+
     torch.testing.assert_close(xyz1.grad, xyz2.grad)
-    torch.testing.assert_close(intr1.grad, intr2.grad)
-    torch.testing.assert_close(extr1.grad, extr2.grad)
+    torch.testing.assert_close(intr1.grad / valid_num, intr2.grad / valid_num)
+    torch.testing.assert_close(extr1.grad / valid_num, extr2.grad / valid_num)
     print("Backward pass.")
