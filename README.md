@@ -39,7 +39,9 @@ DPTR use a pinhole camera model:
 $$dx=K[R_{cw}|t_{cw}]X$$
 
 $$d\begin{bmatrix}
-  u \\ v \\ 1
+  u \\ 
+  v \\ 
+  1
 \end{bmatrix} = \begin{bmatrix}
   f_x & 0 & c_x \\
   0 &  f_y & c_y \\
@@ -49,7 +51,10 @@ $$d\begin{bmatrix}
   r_{21} & r_{22} & r_{23} & t_2 \\
   r_{31} & r_{32} & r_{33} & t_3 \\
 \end{bmatrix}\begin{bmatrix}
-  X\\ Y \\ Z \\ 1
+  X \\ 
+  Y \\ 
+  Z \\ 
+  1
 \end{bmatrix}$$
 
 where, $(X, Y, Z)$ are the coordinate of a 3D point in the world coordinate system, $(u,v)$ are the coordinate of the projection point in pixels, $d$ is the depth value. $K$ is a matrix of intrinsic parameters, $R_{cw}$ and $T_{cw}$ are extrinsic parameters.  $(c_x, c_y)$ is the principal point defined in the image coordinate system with the upper left corner of the image as the origin. In CG community, the principal point is usually set at the image center, i.e. $(c_x, c_y)=(\frac{float(W)}{2.0},\frac{float(H)}{2.0})$. $f_x$ and $f_y$ are the focal lengths in pixels.
