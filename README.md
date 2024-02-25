@@ -38,7 +38,7 @@ DPTR use a pinhole camera model:
 
 $$dx=K[R_{cw}|t_{cw}]X$$
 
-$$d\begin{array}
+$$d\begin{bmatrix}
   u \\ v \\ 1
 \end{bmatrix} = \begin{bmatrix}
   f_x & 0 & c_x \\
