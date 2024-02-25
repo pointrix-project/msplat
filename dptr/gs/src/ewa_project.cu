@@ -16,8 +16,8 @@ namespace cg = cooperative_groups;
 __global__ void EWAProjectForwardCUDAKernel(int P,
                                             const float3 *xyz,
                                             const float *cov3d,
-                                            const float *viewmat,
-                                            const float *camparam,
+                                            const float *intr,
+                                            const float *extr,
                                             const float2 *uv,
                                             const dim3 grid,
                                             const bool *visible,
@@ -28,48 +28,35 @@ __global__ void EWAProjectForwardCUDAKernel(int P,
     if (idx >= P || !visible[idx])
         return;
 
-    float fx = camparam[0];
-    float fy = camparam[1];
+    float fx = intr[0];
+    float fy = intr[1];
 
-    float3 t = transform_point_4x3(viewmat, xyz[idx]);
+    float3 p = xyz[idx];
+    float3 t = {
+        extr[0] * p.x + extr[1] * p.y + extr[2] * p.z + extr[3],
+        extr[4] * p.x + extr[5] * p.y + extr[6] * p.z + extr[7],
+        extr[8] * p.x + extr[9] * p.y + extr[10] * p.z + extr[11]
+    };
 
-    glm::mat3 J = glm::mat3(fx / t.z,
-                            0.0f,
-                            -(fx * t.x) / (t.z * t.z),
-                            0.0f,
-                            fy / t.z,
-                            -(fy * t.y) / (t.z * t.z),
-                            0,
-                            0,
-                            0);
+    glm::mat3 J = glm::mat3(fx / t.z, 0.0f, 0.0f,
+                            0.0f, fy / t.z, 0.0f,
+                            -(fx * t.x) / (t.z * t.z), -(fy * t.y) / (t.z * t.z), 0.0f);
 
-    glm::mat3 W = glm::mat3(viewmat[0],
-                            viewmat[4],
-                            viewmat[8],
-                            viewmat[1],
-                            viewmat[5],
-                            viewmat[9],
-                            viewmat[2],
-                            viewmat[6],
-                            viewmat[10]);
+    glm::mat3 W = glm::mat3(extr[0], extr[4], extr[8],
+                            extr[1], extr[5], extr[9],
+                            extr[2], extr[6], extr[10]);
 
-    glm::mat3 T = W * J;
+    glm::mat3 T = J * W;
 
-    glm::mat3 Vrk = glm::mat3(cov3d[6 * idx + 0],
-                              cov3d[6 * idx + 1],
-                              cov3d[6 * idx + 2],
-                              cov3d[6 * idx + 1],
-                              cov3d[6 * idx + 3],
-                              cov3d[6 * idx + 4],
-                              cov3d[6 * idx + 2],
-                              cov3d[6 * idx + 4],
-                              cov3d[6 * idx + 5]);
+    glm::mat3 Vrk = glm::mat3(cov3d[6 * idx + 0], cov3d[6 * idx + 1], cov3d[6 * idx + 2],
+                              cov3d[6 * idx + 1], cov3d[6 * idx + 3], cov3d[6 * idx + 4],
+                              cov3d[6 * idx + 2], cov3d[6 * idx + 4], cov3d[6 * idx + 5]);
 
-    glm::mat3 ewa_cov = glm::transpose(T) * glm::transpose(Vrk) * T;
+    glm::mat3 cov2D =  T * Vrk  * glm::transpose(T);
 
-    float3 cov = {float(ewa_cov[0][0] + 0.3f),
-                  float(ewa_cov[0][1]),
-                  float(ewa_cov[1][1] + 0.3f)};
+    float3 cov = {float(cov2D[0][0] + 0.3f),
+                  float(cov2D[0][1]),
+                  float(cov2D[1][1] + 0.3f)};
 
     float det = (cov.x * cov.z - cov.y * cov.y);
     if (det == 0.0f)
@@ -98,159 +85,168 @@ __global__ void EWAProjectForwardCUDAKernel(int P,
 __global__ void EWAProjectBackCUDAKernel(int P,
                                          const float3 *xyz,
                                          const float *cov3d,
-                                         const float *viewmat,
-                                         const float *camparam,
+                                         const float *intr,
+                                         const float *extr,
                                          const int *radius,
                                          const float3 *dL_dconic,
                                          float3 *dL_dxyz,
-                                         float *dL_dcov3d) {
+                                         float *dL_dcov3d,
+                                         float *dL_dintr,
+                                         float *dL_dextr) {
     auto idx = cg::this_grid().thread_rank();
     if (idx >= P || !(radius[idx] > 0))
         return;
 
-    float fx = camparam[0];
-    float fy = camparam[1];
+    float fx = intr[0];
+    float fy = intr[1];
 
-    float3 t = transform_point_4x3(viewmat, xyz[idx]);
+    float3 p = xyz[idx];
+    const float *c3ptr = cov3d + 6 * idx;
 
-    glm::mat3 J = glm::mat3(fx / t.z,
-                            0.0f,
-                            -(fx * t.x) / (t.z * t.z),
-                            0.0f,
-                            fy / t.z,
-                            -(fy * t.y) / (t.z * t.z),
-                            0,
-                            0,
-                            0);
+    float3 t = {
+        extr[0] * p.x + extr[1] * p.y + extr[2] * p.z + extr[3],
+        extr[4] * p.x + extr[5] * p.y + extr[6] * p.z + extr[7],
+        extr[8] * p.x + extr[9] * p.y + extr[10] * p.z + extr[11]
+    };
 
-    glm::mat3 W = glm::mat3(viewmat[0],
-                            viewmat[4],
-                            viewmat[8],
-                            viewmat[1],
-                            viewmat[5],
-                            viewmat[9],
-                            viewmat[2],
-                            viewmat[6],
-                            viewmat[10]);
+    glm::mat3 J = glm::mat3(fx / t.z, 0.0f, 0.0f,
+                            0.0f, fy / t.z, 0.0f,
+                            -(fx * t.x) / (t.z * t.z), -(fy * t.y) / (t.z * t.z), 0.0f);
 
-    glm::mat3 Vrk = glm::mat3(cov3d[6 * idx + 0],
-                              cov3d[6 * idx + 1],
-                              cov3d[6 * idx + 2],
-                              cov3d[6 * idx + 1],
-                              cov3d[6 * idx + 3],
-                              cov3d[6 * idx + 4],
-                              cov3d[6 * idx + 2],
-                              cov3d[6 * idx + 4],
-                              cov3d[6 * idx + 5]);
+    glm::mat3 W = glm::mat3(extr[0], extr[4], extr[8],
+                            extr[1], extr[5], extr[9],
+                            extr[2], extr[6], extr[10]);
 
-    glm::mat3 T = W * J;
+    glm::mat3 T = J * W;
 
-    glm::mat3 cov2D = glm::transpose(T) * glm::transpose(Vrk) * T;
+    glm::mat3 Vrk = glm::mat3(c3ptr[0], c3ptr[1], c3ptr[2],
+                              c3ptr[1], c3ptr[3], c3ptr[4],
+                              c3ptr[2], c3ptr[4], c3ptr[5]);
 
-    // Use helper variables for 2D covariance entries. More compact.
-    float a = cov2D[0][0] + 0.3f;
-    float b = cov2D[0][1];
-    float c = cov2D[1][1] + 0.3f;
+    glm::mat3 cov2D =  T * Vrk  * glm::transpose(T);
 
-    float det = a * c - b * b;
-    if (det == 0)
+    float3 cov = {float(cov2D[0][0] + 0.3f),
+                  float(cov2D[0][1]),
+                  float(cov2D[1][1] + 0.3f)};
+
+    float det = (cov.x * cov.z - cov.y * cov.y);
+    if (det == 0.0f)
         return;
 
     float nom = 1.0f / (det * det);
 
-    float dL_da = nom * (-c * c * dL_dconic[idx].x + b * c * dL_dconic[idx].y +
-                         (det - a * c) * dL_dconic[idx].z);
-    float dL_dc = nom * ((det - a * c) * dL_dconic[idx].x +
-                         a * b * dL_dconic[idx].y - a * a * dL_dconic[idx].z);
-    float dL_db = nom * (2 * b * c * dL_dconic[idx].x -
-                         (det + 2 * b * b) * dL_dconic[idx].y +
-                         2 * a * b * dL_dconic[idx].z);
+    float dL_dcovx = nom * (-cov.z * cov.z * dL_dconic[idx].x + cov.y * cov.z * dL_dconic[idx].y +
+                         (det - cov.x * cov.z) * dL_dconic[idx].z);
+    float dL_dcovy = nom * (2 * cov.y * cov.z * dL_dconic[idx].x -
+                         (det + 2 * cov.y * cov.y) * dL_dconic[idx].y +
+                         2 * cov.x * cov.y * dL_dconic[idx].z);
+    float dL_dcovz = nom * ((det - cov.x * cov.z) * dL_dconic[idx].x +
+                         cov.x * cov.y * dL_dconic[idx].y - cov.x * cov.x * dL_dconic[idx].z);
+    
+    dL_dcov3d[6 * idx + 0] += T[0][0] * T[0][0] * dL_dcovx;
+    dL_dcov3d[6 * idx + 0] += T[0][0] * T[0][1] * dL_dcovy;
+    dL_dcov3d[6 * idx + 0] += T[0][1] * T[0][1] * dL_dcovz;
 
-    dL_dcov3d[6 * idx + 0] +=
-        (T[0][0] * T[0][0] * dL_da + T[0][0] * T[1][0] * dL_db +
-         T[1][0] * T[1][0] * dL_dc);
-    dL_dcov3d[6 * idx + 3] +=
-        (T[0][1] * T[0][1] * dL_da + T[0][1] * T[1][1] * dL_db +
-         T[1][1] * T[1][1] * dL_dc);
-    dL_dcov3d[6 * idx + 5] +=
-        (T[0][2] * T[0][2] * dL_da + T[0][2] * T[1][2] * dL_db +
-         T[1][2] * T[1][2] * dL_dc);
+    dL_dcov3d[6 * idx + 1] += 2 * T[0][0] * T[1][0] * dL_dcovx;
+    dL_dcov3d[6 * idx + 1] += (T[0][0] * T[1][1] + T[0][1] * T[1][0]) * dL_dcovy;
+    dL_dcov3d[6 * idx + 1] += 2 * T[0][1] * T[1][1] * dL_dcovz;
 
-    dL_dcov3d[6 * idx + 1] += 2 * T[0][0] * T[0][1] * dL_da +
-                              (T[0][0] * T[1][1] + T[0][1] * T[1][0]) * dL_db +
-                              2 * T[1][0] * T[1][1] * dL_dc;
-    dL_dcov3d[6 * idx + 2] += 2 * T[0][0] * T[0][2] * dL_da +
-                              (T[0][0] * T[1][2] + T[0][2] * T[1][0]) * dL_db +
-                              2 * T[1][0] * T[1][2] * dL_dc;
-    dL_dcov3d[6 * idx + 4] += 2 * T[0][2] * T[0][1] * dL_da +
-                              (T[0][1] * T[1][2] + T[0][2] * T[1][1]) * dL_db +
-                              2 * T[1][1] * T[1][2] * dL_dc;
+    dL_dcov3d[6 * idx + 2] += 2 * T[0][0]* T[2][0] * dL_dcovx;
+    dL_dcov3d[6 * idx + 2] += (T[0][0]* T[2][1] + T[0][1]* T[2][0]) * dL_dcovy;
+    dL_dcov3d[6 * idx + 2] += 2 * T[0][1]* T[2][1] * dL_dcovz;
 
-    float dL_dT00 =
-        2 * (T[0][0] * Vrk[0][0] + T[0][1] * Vrk[0][1] + T[0][2] * Vrk[0][2]) *
-            dL_da +
-        (T[1][0] * Vrk[0][0] + T[1][1] * Vrk[0][1] + T[1][2] * Vrk[0][2]) *
-            dL_db;
-    float dL_dT01 =
-        2 * (T[0][0] * Vrk[1][0] + T[0][1] * Vrk[1][1] + T[0][2] * Vrk[1][2]) *
-            dL_da +
-        (T[1][0] * Vrk[1][0] + T[1][1] * Vrk[1][1] + T[1][2] * Vrk[1][2]) *
-            dL_db;
-    float dL_dT02 =
-        2 * (T[0][0] * Vrk[2][0] + T[0][1] * Vrk[2][1] + T[0][2] * Vrk[2][2]) *
-            dL_da +
-        (T[1][0] * Vrk[2][0] + T[1][1] * Vrk[2][1] + T[1][2] * Vrk[2][2]) *
-            dL_db;
-    float dL_dT10 =
-        2 * (T[1][0] * Vrk[0][0] + T[1][1] * Vrk[0][1] + T[1][2] * Vrk[0][2]) *
-            dL_dc +
-        (T[0][0] * Vrk[0][0] + T[0][1] * Vrk[0][1] + T[0][2] * Vrk[0][2]) *
-            dL_db;
-    float dL_dT11 =
-        2 * (T[1][0] * Vrk[1][0] + T[1][1] * Vrk[1][1] + T[1][2] * Vrk[1][2]) *
-            dL_dc +
-        (T[0][0] * Vrk[1][0] + T[0][1] * Vrk[1][1] + T[0][2] * Vrk[1][2]) *
-            dL_db;
-    float dL_dT12 =
-        2 * (T[1][0] * Vrk[2][0] + T[1][1] * Vrk[2][1] + T[1][2] * Vrk[2][2]) *
-            dL_dc +
-        (T[0][0] * Vrk[2][0] + T[0][1] * Vrk[2][1] + T[0][2] * Vrk[2][2]) *
-            dL_db;
+    dL_dcov3d[6 * idx + 3] += T[1][0] * T[1][0] * dL_dcovx;
+    dL_dcov3d[6 * idx + 3] += T[1][0] * T[1][1] * dL_dcovy;
+    dL_dcov3d[6 * idx + 3] += T[1][1] * T[1][1] * dL_dcovz;
 
-    float dL_dJ00 = W[0][0] * dL_dT00 + W[0][1] * dL_dT01 + W[0][2] * dL_dT02;
-    float dL_dJ02 = W[2][0] * dL_dT00 + W[2][1] * dL_dT01 + W[2][2] * dL_dT02;
-    float dL_dJ11 = W[1][0] * dL_dT10 + W[1][1] * dL_dT11 + W[1][2] * dL_dT12;
-    float dL_dJ12 = W[2][0] * dL_dT10 + W[2][1] * dL_dT11 + W[2][2] * dL_dT12;
+    dL_dcov3d[6 * idx + 4] += 2 * T[1][0] * T[2][0] * dL_dcovx;
+    dL_dcov3d[6 * idx + 4] += (T[1][0] * T[2][1] + T[1][1] * T[2][0]) * dL_dcovy;
+    dL_dcov3d[6 * idx + 4] += 2 * T[1][1] * T[2][1] * dL_dcovz;
+
+    dL_dcov3d[6 * idx + 5] += T[2][0] * T[2][0] * dL_dcovx;
+    dL_dcov3d[6 * idx + 5] += T[2][0] * T[2][1] * dL_dcovy;
+    dL_dcov3d[6 * idx + 5] += T[2][1] * T[2][1] * dL_dcovz;
+
+    float dL_dT00, dL_dT01, dL_dT10, dL_dT11, dL_dT20, dL_dT21;
+    dL_dT00 = dL_dT01 = dL_dT10 = dL_dT11 = dL_dT20 = dL_dT21 = 0;
+
+    dL_dT00 += 2 * (T[0][0] * c3ptr[0] + T[1][0] * c3ptr[1] + T[2][0] * c3ptr[2]) * dL_dcovx;
+    dL_dT00 += (T[0][1] * c3ptr[0] + T[1][1] * c3ptr[1] + T[2][1] * c3ptr[2]) * dL_dcovy;
+
+    dL_dT01 += (T[0][0] * c3ptr[0] + T[1][0] * c3ptr[1] + T[2][0] * c3ptr[2]) * dL_dcovy;
+    dL_dT01 += 2 * (T[0][1] * c3ptr[0] + T[1][1] * c3ptr[1]  + T[2][1] * c3ptr[2]) * dL_dcovz;
+
+    dL_dT10 += 2 * (T[0][0] * c3ptr[1] + T[1][0] * c3ptr[3] + T[2][0] * c3ptr[4]) * dL_dcovx;
+    dL_dT10 += (T[0][1] * c3ptr[1] + T[1][1] * c3ptr[3] + T[2][1] * c3ptr[4]) * dL_dcovy;
+
+    dL_dT11 += (T[0][0] * c3ptr[1] + T[1][0] * c3ptr[3] + T[2][0] * c3ptr[4]) * dL_dcovy;
+    dL_dT11 += 2 * (T[0][1] * c3ptr[1] + T[1][1] * c3ptr[3] + T[2][1] * c3ptr[4]) * dL_dcovz;
+
+    dL_dT20 += 2 * (T[0][0] * c3ptr[2] + T[1][0] * c3ptr[4] + T[2][0] * c3ptr[5]) * dL_dcovx;
+    dL_dT20 += (T[0][1] * c3ptr[2] + T[1][1] * c3ptr[4] + T[2][1] * c3ptr[5]) * dL_dcovy;
+
+    dL_dT21 += (T[0][0] * c3ptr[2] + T[1][0] * c3ptr[4] + T[2][0] * c3ptr[5]) * dL_dcovy;
+    dL_dT21 += 2 * (T[0][1] * c3ptr[2] + T[1][1] * c3ptr[4] + T[2][1] * c3ptr[5]) * dL_dcovz;
+
+    float dL_dJ00 = W[0][0] * dL_dT00 + W[1][0] * dL_dT10 + W[2][0] * dL_dT20;
+    float dL_dJ20 = W[0][2] * dL_dT00 + W[1][2] * dL_dT10 + W[2][2] * dL_dT20;
+    float dL_dJ11 = W[0][1] * dL_dT01 + W[1][1] * dL_dT11 + W[2][1] * dL_dT21;
+    float dL_dJ21 = W[0][2] * dL_dT01 + W[1][2] * dL_dT11 + W[2][2] * dL_dT21;
 
     float tz = 1.f / t.z;
     float tz2 = tz * tz;
     float tz3 = tz2 * tz;
 
-    float dL_dtx = -fx * tz2 * dL_dJ02;
-    float dL_dty = -fy * tz2 * dL_dJ12;
+    if(dL_dintr != nullptr){
+        atomicAdd(&dL_dintr[0], tz * dL_dJ00);
+        atomicAdd(&dL_dextr[0], - t.x * tz2 * dL_dJ20);
+
+        atomicAdd(&dL_dintr[1], tz * dL_dJ11);
+        atomicAdd(&dL_dextr[1], - t.y * tz2 * dL_dJ21);
+    }
+
+    if(dL_dextr != nullptr){
+        // extr[0] extr[4] extr[8]         W[0][0] W[1][0] W[2][0]
+        // extr[1] extr[5] extr[9]   ===>  W[0][1] W[1][1] W[2][1]
+        // extr[2] extr[6] extr[10]        W[0][2] W[1][2] W[2][2]
+        atomicAdd(&dL_dextr[0], J[0][0] * dL_dT00);
+        atomicAdd(&dL_dextr[1], J[1][1] * dL_dT01);
+        atomicAdd(&dL_dextr[2], J[2][0] * dL_dT00 + J[2][1] * dL_dT01);
+
+        atomicAdd(&dL_dextr[4], J[0][0] * dL_dT10);
+        atomicAdd(&dL_dextr[5], J[1][1] * dL_dT11);
+        atomicAdd(&dL_dextr[6], J[2][0] * dL_dT10 + J[2][1] * dL_dT11);
+
+        atomicAdd(&dL_dextr[8], J[0][0] * dL_dT20);
+        atomicAdd(&dL_dextr[9], J[1][1] * dL_dT21);
+        atomicAdd(&dL_dextr[10], J[2][0] * dL_dT20 + J[2][1] * dL_dT21);
+    }
+
+    float dL_dtx = -fx * tz2 * dL_dJ20;
+    float dL_dty = -fy * tz2 * dL_dJ21;
     float dL_dtz = -fx * tz2 * dL_dJ00 - fy * tz2 * dL_dJ11 +
-                   (2 * fx * t.x) * tz3 * dL_dJ02 +
-                   (2 * fy * t.y) * tz3 * dL_dJ12;
+                   (2 * fx * t.x) * tz3 * dL_dJ20 +
+                   (2 * fy * t.y) * tz3 * dL_dJ21;
 
     dL_dxyz[idx] = {
-        viewmat[0] * dL_dtx + viewmat[1] * dL_dty + viewmat[2] * dL_dtz,
-        viewmat[4] * dL_dtx + viewmat[5] * dL_dty + viewmat[6] * dL_dtz,
-        viewmat[8] * dL_dtx + viewmat[9] * dL_dty + viewmat[10] * dL_dtz};
+        extr[0] * dL_dtx + extr[4] * dL_dty + extr[8] * dL_dtz,
+        extr[1] * dL_dtx + extr[5] * dL_dty + extr[9] * dL_dtz,
+        extr[2] * dL_dtx + extr[6] * dL_dty + extr[10] * dL_dtz};
 }
 
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>
 EWAProjectForward(const torch::Tensor &xyz,
                   const torch::Tensor &cov3d,
-                  const torch::Tensor &viewmat,
-                  const torch::Tensor &camparam,
+                  const torch::Tensor &intr,
+                  const torch::Tensor &extr,
                   const torch::Tensor &uv,
                   const int W,
                   const int H,
                   const torch::Tensor &visible) {
     CHECK_INPUT(xyz);
     CHECK_INPUT(cov3d);
-    CHECK_INPUT(viewmat);
-    CHECK_INPUT(camparam);
+    CHECK_INPUT(intr);
+    CHECK_INPUT(extr);
     CHECK_INPUT(uv);
     CHECK_INPUT(visible);
 
@@ -270,8 +266,8 @@ EWAProjectForward(const torch::Tensor &xyz,
             P,
             (float3 *)xyz.contiguous().data_ptr<float>(),
             cov3d.contiguous().data_ptr<float>(),
-            viewmat.contiguous().data_ptr<float>(),
-            camparam.contiguous().data_ptr<float>(),
+            intr.contiguous().data_ptr<float>(),
+            extr.contiguous().data_ptr<float>(),
             (float2 *)uv.contiguous().data_ptr<float>(),
             tile_grid,
             visible.contiguous().data_ptr<bool>(),
@@ -283,17 +279,17 @@ EWAProjectForward(const torch::Tensor &xyz,
     return std::make_tuple(conic, radius, tiles);
 }
 
-std::tuple<torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 EWAProjectBackward(const torch::Tensor &xyz,
                    const torch::Tensor &cov3d,
-                   const torch::Tensor &viewmat,
-                   const torch::Tensor &camparam,
+                   const torch::Tensor &intr,
+                   const torch::Tensor &extr,
                    const torch::Tensor &radius,
                    const torch::Tensor &dL_dconic) {
     CHECK_INPUT(xyz);
     CHECK_INPUT(cov3d);
-    CHECK_INPUT(viewmat);
-    CHECK_INPUT(camparam);
+    CHECK_INPUT(intr);
+    CHECK_INPUT(extr);
     CHECK_INPUT(radius);
     CHECK_INPUT(dL_dconic);
 
@@ -301,6 +297,16 @@ EWAProjectBackward(const torch::Tensor &xyz,
     auto float_opts = xyz.options().dtype(torch::kFloat32);
     torch::Tensor dL_dxyz = torch::zeros({P, 3}, float_opts);
     torch::Tensor dL_dcov3d = torch::zeros({P, 6}, float_opts);
+    torch::Tensor dL_dintr = torch::zeros({4, 1}, float_opts);
+    torch::Tensor dL_dextr = torch::zeros({3, 4}, float_opts);
+
+    float *dL_dintr_ptr = nullptr;
+    if (intr.requires_grad())
+        dL_dintr_ptr = dL_dintr.data_ptr<float>();
+
+    float *dL_dextr_ptr = nullptr;
+    if (extr.requires_grad())
+        dL_dextr_ptr = dL_dextr.data_ptr<float>();
 
     if (P != 0) {
         // Kernel
@@ -308,13 +314,15 @@ EWAProjectBackward(const torch::Tensor &xyz,
             P,
             (float3 *)xyz.contiguous().data_ptr<float>(),
             cov3d.contiguous().data_ptr<float>(),
-            viewmat.contiguous().data_ptr<float>(),
-            camparam.contiguous().data_ptr<float>(),
+            intr.contiguous().data_ptr<float>(),
+            extr.contiguous().data_ptr<float>(),
             radius.contiguous().data_ptr<int>(),
             (float3 *)dL_dconic.contiguous().data_ptr<float>(),
             (float3 *)dL_dxyz.data_ptr<float>(),
-            dL_dcov3d.data_ptr<float>());
+            dL_dcov3d.data_ptr<float>(), 
+            dL_dintr_ptr,
+            dL_dextr_ptr);
     }
 
-    return std::make_tuple(dL_dxyz, dL_dcov3d);
+    return std::make_tuple(dL_dxyz, dL_dcov3d, dL_dintr, dL_dextr);
 }

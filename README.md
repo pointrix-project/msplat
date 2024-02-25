@@ -15,22 +15,49 @@ Differentiable PoinT Renderer, backend for POINTRIX.
 
 The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serves as the backend of [POINTRIX]() and is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
 ![dptr](media/media.gif)
+
 The logo of [DPTR](https://www.bing.com/images/create/a-3d-logo-made-of-small2c-dark-particles-for-an-ope/1-65d5d0c0f2a24c4ea2a1d3bbd9e2a371?id=G8uixCHHEt%2fNOZsGgDGSeA%3d%3d&view=detailv2&idpp=genimg&idpclose=1&thId=OIG3.JNO1BM32lVS9dsHkHxbH&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/).
 
 ## How to install
 1. Install from source
 ```shell
 # clone the code from github
-git clone https://github.com/NJU-3DV/DPTR.git
+git clone https://github.com/NJU-3DV/DPTR.git --recursive
 cd DPTR
 # install dptr
 pip install .
 ```
 
-2. Install from pip
+2. Install from pip (Not yet.)
 ```shell
 pip install dptr
 ```
+
+## Camera Model
+DPTR use a pinhole camera model:
+$$
+dx=K[R_{cw}|t_{cw}]X
+$$
+$$
+d\begin{bmatrix}
+  u\\v\\1
+\end{bmatrix} = \begin{bmatrix}
+  f_x & 0 & c_x \\
+  0 &  f_y & c_y \\
+  0 & 0 & 1
+\end{bmatrix}\begin{bmatrix}
+  r_{11} & r_{12} & r_{13} & t_1 \\
+  r_{21} & r_{22} & r_{23} & t_2 \\
+  r_{31} & r_{32} & r_{33} & t_3
+\end{bmatrix}\begin{bmatrix}
+  X\\Y\\Z\\1
+\end{bmatrix}
+$$
+where, $(X, Y, Z)$ are the coordinate of a 3D point in the world coordinate system, $(u,v)$ are the coordinate of the projection point in pixels, $d$ is the depth value. $K$ is a matrix of intrinsic parameters, $R_{cw}$ and $T_{cw}$ are extrinsic parameters.  $(c_x, c_y)$ is the principal point defined in the image coordinate system with the upper left corner of the image as the origin. In CG community, the principal point is usually set at the image center, i.e. $(c_x, c_y)=(\frac{float(W)}{2.0},\frac{float(H)}{2.0})$. $f_x$ and $f_y$ are the focal lengths in pixels.
+
+- Intrinsic Parameters $[f_x, f_y, c_x, c_y]$
+- Extrinsic Parameters $[R_{cw}|t_{cw}]$
+
 
 ## Tutorial: Fitting the logo with 3D Gaussian Splatting
 In this tutorial, we will demonstrate how to use DPTR to implement 3D Gaussian Splatting (3DGS) to fit the DPTR logo step by step. If you are not familiar with 3DGS, you can learn more about it through the original [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) project.

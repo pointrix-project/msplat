@@ -67,8 +67,8 @@ __global__ void projectPointBackwardCUDAKernel(const int P,
                                                const float2 *dL_duv,
                                                const float *dL_ddepth,
                                                float3 *dL_dxyz,
-                                               double *dL_dintr,
-                                               double *dL_dextr) {
+                                               float *dL_dintr,
+                                               float *dL_dextr) {
     auto idx = cg::this_grid().thread_rank();
 
     // depth == 0 means culled
@@ -199,13 +199,13 @@ projectPointsBackward(const torch::Tensor &xyz,
     torch::Tensor dL_dintr = torch::zeros({4}, double_opts);
     torch::Tensor dL_dextr = torch::zeros({3, 4}, double_opts);
 
-    double *dL_dintr_ptr = nullptr;
+    float *dL_dintr_ptr = nullptr;
     if (intr.requires_grad())
-        dL_dintr_ptr = dL_dintr.data_ptr<double>();
+        dL_dintr_ptr = dL_dintr.data_ptr<float>();
 
-    double *dL_dextr_ptr = nullptr;
+    float *dL_dextr_ptr = nullptr;
     if (extr.requires_grad())
-        dL_dextr_ptr = dL_dextr.data_ptr<double>();
+        dL_dextr_ptr = dL_dextr.data_ptr<float>();
 
     if (P != 0) {
         projectPointBackwardCUDAKernel<<<(P + 255) / 256, 256>>>(

@@ -64,7 +64,7 @@ def ewa_project_torch_impl(
     v1 = b + torch.sqrt(torch.clamp(b**2 - det, min=0.1))
     v2 = b - torch.sqrt(torch.clamp(b**2 - det, min=0.1))
     radius = torch.ceil(3.0 * torch.sqrt(torch.max(v1, v2)))
-
+    
     # get tiles
     top_left = torch.zeros_like(xy, dtype=torch.int, device=uv.device)
     bottom_right = torch.zeros_like(xy, dtype=torch.int, device=uv.device)
@@ -139,8 +139,8 @@ def ndc_to_pixel(ndc, size):
     return ((ndc + 1.0) * size - 1.0) * 0.5
 
 if __name__ == "__main__":
-    # seed = 121
-    # torch.manual_seed(seed)
+    seed = 123
+    torch.manual_seed(seed)
     
     iters = 1
     N = 10000
@@ -164,6 +164,10 @@ if __name__ == "__main__":
     full_proj_transform = (viewmat.unsqueeze(0).bmm(projmat.unsqueeze(0))).squeeze(0)
     
     camparam = torch.Tensor([fx, fy, H/2, W/2]).cuda()
+    
+    intr = camparam
+    extr = viewmat[:4, :3].t()
+    
     xyz = torch.randn((N, 3), dtype=torch.float32).cuda() * 2.6 - 1.3
     
     # generate scale in range of [1, 2]. scale must > 0
@@ -180,9 +184,8 @@ if __name__ == "__main__":
         depth 
     ) = gs.project_point(
         xyz, 
-        viewmat, 
-        full_proj_transform,
-        camparam,
+        intr, 
+        extr,
         W, H)
 
     visible = (depth != 0).squeeze(-1)
@@ -227,8 +230,8 @@ if __name__ == "__main__":
         ) = gs.ewa_project(
             xyz2,
             cov3d2, 
-            viewmat,
-            camparam,
+            intr,
+            extr,
             uv,
             W, H,
             visible
@@ -236,7 +239,7 @@ if __name__ == "__main__":
     
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
-
+    
     torch.testing.assert_close(out_conic_pytorch, out_conic_cuda)
     torch.testing.assert_close(out_radius_pytorch, out_radius_cuda)
     torch.testing.assert_close(out_tiles_pytorch, out_tiles_cuda)
