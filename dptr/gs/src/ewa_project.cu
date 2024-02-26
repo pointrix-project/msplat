@@ -197,36 +197,53 @@ __global__ void EWAProjectBackCUDAKernel(int P,
     float tz2 = tz * tz;
     float tz3 = tz2 * tz;
 
-    if(dL_dintr != nullptr){
-        atomicAdd(&dL_dintr[0], tz * dL_dJ00);
-        atomicAdd(&dL_dextr[0], - t.x * tz2 * dL_dJ20);
-
-        atomicAdd(&dL_dintr[1], tz * dL_dJ11);
-        atomicAdd(&dL_dextr[1], - t.y * tz2 * dL_dJ21);
-    }
-
-    if(dL_dextr != nullptr){
-        // extr[0] extr[4] extr[8]         W[0][0] W[1][0] W[2][0]
-        // extr[1] extr[5] extr[9]   ===>  W[0][1] W[1][1] W[2][1]
-        // extr[2] extr[6] extr[10]        W[0][2] W[1][2] W[2][2]
-        atomicAdd(&dL_dextr[0], J[0][0] * dL_dT00);
-        atomicAdd(&dL_dextr[1], J[1][1] * dL_dT01);
-        atomicAdd(&dL_dextr[2], J[2][0] * dL_dT00 + J[2][1] * dL_dT01);
-
-        atomicAdd(&dL_dextr[4], J[0][0] * dL_dT10);
-        atomicAdd(&dL_dextr[5], J[1][1] * dL_dT11);
-        atomicAdd(&dL_dextr[6], J[2][0] * dL_dT10 + J[2][1] * dL_dT11);
-
-        atomicAdd(&dL_dextr[8], J[0][0] * dL_dT20);
-        atomicAdd(&dL_dextr[9], J[1][1] * dL_dT21);
-        atomicAdd(&dL_dextr[10], J[2][0] * dL_dT20 + J[2][1] * dL_dT21);
-    }
-
     float dL_dtx = -fx * tz2 * dL_dJ20;
     float dL_dty = -fy * tz2 * dL_dJ21;
     float dL_dtz = -fx * tz2 * dL_dJ00 - fy * tz2 * dL_dJ11 +
                    (2 * fx * t.x) * tz3 * dL_dJ20 +
                    (2 * fy * t.y) * tz3 * dL_dJ21;
+    
+    if(dL_dintr != nullptr){
+        atomicAdd(&dL_dintr[0], tz * dL_dJ00);
+        atomicAdd(&dL_dintr[0], - t.x * tz2 * dL_dJ20);
+
+        atomicAdd(&dL_dintr[1], tz * dL_dJ11);
+        atomicAdd(&dL_dintr[1], - t.y * tz2 * dL_dJ21);
+    }
+
+    if(dL_dextr != nullptr){
+        // dL/dT * dT/dextr
+        // extr[0] extr[1] extr[2]         W[0][0] W[1][0] W[2][0]
+        // extr[4] extr[5] extr[6]   ===>  W[0][1] W[1][1] W[2][1]
+        // extr[8] extr[9] extr[10]        W[0][2] W[1][2] W[2][2]
+        atomicAdd(&dL_dextr[0], J[0][0] * dL_dT00);
+        atomicAdd(&dL_dextr[1], J[0][0] * dL_dT10);
+        atomicAdd(&dL_dextr[2], J[0][0] * dL_dT20);
+
+        atomicAdd(&dL_dextr[4], J[1][1] * dL_dT01);
+        atomicAdd(&dL_dextr[5], J[1][1] * dL_dT11);
+        atomicAdd(&dL_dextr[6], J[1][1] * dL_dT21);
+
+        atomicAdd(&dL_dextr[8], J[2][0] * dL_dT00 + J[2][1] * dL_dT01);
+        atomicAdd(&dL_dextr[9], J[2][0] * dL_dT10 + J[2][1] * dL_dT11);     
+        atomicAdd(&dL_dextr[10], J[2][0] * dL_dT20 + J[2][1] * dL_dT21);
+
+        // dL/dt * dt/dextr
+        atomicAdd(&dL_dextr[0], p.x * dL_dtx); //
+        atomicAdd(&dL_dextr[1], p.y * dL_dtx); 
+        atomicAdd(&dL_dextr[2], p.z * dL_dtx); 
+        atomicAdd(&dL_dextr[3], dL_dtx); //
+
+        atomicAdd(&dL_dextr[4], p.x * dL_dty); 
+        atomicAdd(&dL_dextr[5], p.y * dL_dty); //
+        atomicAdd(&dL_dextr[6], p.z * dL_dty); 
+        atomicAdd(&dL_dextr[7], dL_dty); //
+
+        atomicAdd(&dL_dextr[8], p.x * dL_dtz); 
+        atomicAdd(&dL_dextr[9], p.y * dL_dtz);
+        atomicAdd(&dL_dextr[10], p.z * dL_dtz); // 
+        atomicAdd(&dL_dextr[11], dL_dtz); //
+    }
 
     dL_dxyz[idx] = {
         extr[0] * dL_dtx + extr[4] * dL_dty + extr[8] * dL_dtz,
@@ -297,7 +314,7 @@ EWAProjectBackward(const torch::Tensor &xyz,
     auto float_opts = xyz.options().dtype(torch::kFloat32);
     torch::Tensor dL_dxyz = torch::zeros({P, 3}, float_opts);
     torch::Tensor dL_dcov3d = torch::zeros({P, 6}, float_opts);
-    torch::Tensor dL_dintr = torch::zeros({4, 1}, float_opts);
+    torch::Tensor dL_dintr = torch::zeros({4}, float_opts);
     torch::Tensor dL_dextr = torch::zeros({3, 4}, float_opts);
 
     float *dL_dintr_ptr = nullptr;

@@ -11,23 +11,21 @@ BLOCK_Y = 16
 def ewa_project_torch_impl(
     xyz,
     cov3d, 
-    viewmat,
-    camparam,
+    intr,
+    extr,
     xy,
     W, H,
     visible
 ):
-    viewmat = viewmat.transpose(-2, -1)
-    
-    Wmat = viewmat[..., :3, :3]
-    p = viewmat[..., :3, 3]
+    Wmat = extr[..., :3, :3]
+    p = extr[..., :3, 3]
 
     t = torch.matmul(Wmat, xyz[..., None])[..., 0] + p
     rz = 1.0 / t[..., 2]
     rz2 = rz**2
     
-    fx = camparam[..., 0]
-    fy = camparam[..., 1]
+    fx = intr[..., 0]
+    fy = intr[..., 1]
     
     Jmat = torch.stack(
         [
@@ -147,32 +145,18 @@ if __name__ == "__main__":
     
     print("=============================== running test on ewa_project ===============================")
     
-    W = 800
-    H = 800
+    W, H = 800, 800
+    fx, fy = 1111, 1111
     
-    fovx = 0.6911112070083618
-    fovy = 0.6911112070083618
-    
-    fx = fov2focal(fovx, W)
-    fy = fov2focal(fovy, H)
-    
-    viewmat = torch.Tensor([[6.1182e-01,  7.9096e-01, -6.7348e-03,  0.0000e+00], 
-                            [ 7.9099e-01, -6.1180e-01,  5.2093e-03,  0.0000e+00], 
-                            [ 1.3906e-14, -8.5126e-03, -9.9996e-01,  0.0000e+00], 
-                            [ 1.1327e-09,  1.0458e-09,  4.0311e+00,  1.0000e+00]]).cuda()
-    projmat = getProjectionMatrix(fovx, fovy).transpose(0, 1)
-    full_proj_transform = (viewmat.unsqueeze(0).bmm(projmat.unsqueeze(0))).squeeze(0)
-    
-    camparam = torch.Tensor([fx, fy, H/2, W/2]).cuda()
-    
-    intr = camparam
-    extr = viewmat[:4, :3].t()
+    intr = torch.Tensor([fx, fy, float(H) / 2, float(W/2) / 2]).cuda()
+    extr = torch.Tensor([[ 6.1182e-01,  7.9099e-01,  1.3906e-14,  1.1327e-09],
+                         [ 7.9096e-01, -6.1180e-01, -8.5126e-03,  1.0458e-09],
+                         [-6.7348e-03,  5.2093e-03, -9.9996e-01,  4.0311e+00]]).cuda()
     
     xyz = torch.randn((N, 3), dtype=torch.float32).cuda() * 2.6 - 1.3
     
     # generate scale in range of [1, 2]. scale must > 0
     rand_scale = torch.rand(N, 3, device="cuda", dtype=torch.float) + 1
-    # rand_scale = torch.ones((N, 3), device="cuda", dtype=torch.float) + 1
     rand_quats = torch.rand(N, 4, device="cuda", dtype=torch.float)
     rand_uquats = rand_quats / torch.norm(rand_quats, 2, dim=-1, keepdim=True)
     
@@ -194,9 +178,11 @@ if __name__ == "__main__":
     xyz2 = xyz.clone().requires_grad_()
     cov3d1 = cov3d.clone().requires_grad_()
     cov3d2 = cov3d.clone().requires_grad_()
+    intr1 = intr.clone().requires_grad_()
+    intr2 = intr.clone().requires_grad_()
+    extr1 = extr.clone().requires_grad_()
+    extr2 = extr.clone().requires_grad_()
 
-    xyz1.retain_grad()
-    xyz2.retain_grad()
     cov3d1.retain_grad()
     cov3d2.retain_grad()
 
@@ -212,8 +198,8 @@ if __name__ == "__main__":
         ) = ewa_project_torch_impl(
             xyz1,
             cov3d1, 
-            viewmat,
-            camparam,
+            intr1,
+            extr1,
             uv,
             W, H,
             visible
@@ -230,8 +216,8 @@ if __name__ == "__main__":
         ) = gs.ewa_project(
             xyz2,
             cov3d2, 
-            intr,
-            extr,
+            intr2,
+            extr2,
             uv,
             W, H,
             visible
@@ -261,7 +247,14 @@ if __name__ == "__main__":
     
     cov3d1.grad = torch.nan_to_num(cov3d1.grad)
     xyz1.grad = torch.nan_to_num(xyz1.grad)
+    if intr1.grad is not None:
+        intr1.grad = torch.nan_to_num(intr1.grad)
+    if extr1.grad is not None:
+        extr1.grad = torch.nan_to_num(extr1.grad) 
+    
     torch.testing.assert_close(cov3d1.grad, cov3d2.grad)
     torch.testing.assert_close(xyz1.grad, xyz2.grad)
+    torch.testing.assert_close(intr1.grad, intr2.grad)
+    torch.testing.assert_close(extr1.grad, extr2.grad)
     print("Backward pass.")
     

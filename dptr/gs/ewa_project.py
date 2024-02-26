@@ -71,7 +71,7 @@ class _EWAProject(torch.autograd.Function):
         (dL_dxyz, dL_dcov3d, dL_dintr, dL_dextr) = _C.ewa_project_backward(
             xyz, cov3d, intr, extr, radius, dL_dconic
         )
-
+        
         grads = (
             # loss gradient w.r.t xyz
             dL_dxyz,
@@ -80,7 +80,7 @@ class _EWAProject(torch.autograd.Function):
             # loss gradient w.r.t intr
             dL_dintr if intr.requires_grad else None,
             # loss gradient w.r.t extr
-            dL_dextr if intr.requires_grad else None,
+            dL_dextr if extr.requires_grad else None,
             # loss gradient w.r.t uv
             None,
             # loss gradient w.r.t W,
