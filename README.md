@@ -7,6 +7,7 @@ Differentiable PoinT Renderer, backend for POINTRIX.
 | |_| |  __/ | | |  _ < 
 |____/|_|    |_| |_| \_\
 ``` -->
+
 <p align="center">
     <a href="">🌐 <b> Project Page </b> </a> | 
     <a href="">📰 <b> Document </b> </a>
@@ -18,7 +19,6 @@ The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serves as the back
 ![dptr](media/dptr_b.png#gh-dark-mode-only)
 
 The logo of [DPTR](https://www.bing.com/images/create/a-minimalist-logo-with-a-solid-white-background-th/1-65dc22883b234064b70d857744a00e96?id=Jl8gopEgQ7udGtZyYZjIIg%3d%3d&view=detailv2&idpp=genimg&idpclose=1&thId=OIG3.iiX1JtCk02kNJ_Zn5ORG&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/). The front is Potra Font, designed by Alejo Bergmann.
-
 
 ## How to install
 1. Install from source
@@ -149,9 +149,9 @@ Set a camera.
 ### Train
 Create a 3D Gaussian point cloud and optimize it!
 ```python
-    gaussians = SimpleGaussian(num_points=100000)
+    gaussians = SimpleGaussian(num_points=10000)
 
-    max_iter = 10000
+    max_iter = 2000
     frames = []
     progress_bar = tqdm(range(1, max_iter), desc="Training")
     cal_loss = nn.SmoothL1Loss()
@@ -175,7 +175,7 @@ Create a 3D Gaussian point cloud and optimize it!
         progress_bar.set_postfix({"Loss": f"{loss:.{7}f}"})
         progress_bar.update(1)
         
-        if iteration % 50 == 0:
+        if iteration % 20 == 0:
             show_data = render_feature.detach().permute(1, 2, 0)
             show_data = torch.clamp(show_data, 0.0, 1.0)
             frames.append((show_data.cpu().numpy() * 255).astype(np.uint8))
@@ -197,6 +197,9 @@ We then save the results in the optimization process as a GIF image.
         loop=0,
     )
 ```
+The results are looking quite promising at the moment, but it's evident that certain details aren't being accurately captured. One straightforward solution would be to enhance the number of iterations and gaussian points, although this would inevitably extend the time required to finalize the optimization process.
+
+![result](media/media.gif)
 
 The complete code for this tutorial can be found in: "./tutorials/gs.py". And you could easily run it by:
 ```shell

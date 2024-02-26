@@ -45,7 +45,6 @@ class SimpleGaussian:
         except:
             raise ValueError(f"Attribute or activation for {name} is not VALID!")
 
-
 if __name__ == "__main__":
     seed = 123
     torch.manual_seed(seed)
@@ -57,21 +56,21 @@ if __name__ == "__main__":
     
     C, H, W = gt.shape 
     
-    bg = 0
+    bg = 1
     fov = math.pi / 2.0
     fx = 0.5 * float(W) / math.tan(0.5 * fov)
     fy = 0.5 * float(H) / math.tan(0.5 * fov)
     intr = torch.Tensor([fx, fy, float(W) / 2, float(H) / 2]).cuda().float()
     extr = torch.Tensor([[1.0, 0.0, 0.0, 0.0],
                          [0.0, 1.0, 0.0, 0.0],
-                         [0.0, 0.0, 1.0, 4.0]]).cuda().float()
+                         [0.0, 0.0, 1.0, 2.5]]).cuda().float()
     
-    gaussians = SimpleGaussian(num_points=100000)
+    gaussians = SimpleGaussian(num_points=10000)
     
-    max_iter = 4000
+    max_iter = 2000
     frames = []
     progress_bar = tqdm(range(1, max_iter), desc="Training")
-    cal_loss = nn.MSELoss()
+    cal_loss = nn.SmoothL1Loss()
     
     for iteration in range(0, max_iter):
         
@@ -92,7 +91,7 @@ if __name__ == "__main__":
         progress_bar.set_postfix({"Loss": f"{loss:.{7}f}"})
         progress_bar.update(1)
         
-        if iteration % 50 == 0:
+        if iteration % 20 == 0:
             show_data = rendered_feature.detach().permute(1, 2, 0)
             show_data = torch.clamp(show_data, 0.0, 1.0)
             frames.append((show_data.cpu().numpy() * 255).astype(np.uint8))
