@@ -25,9 +25,9 @@ def ewa_project(
     cov3d : Float[Tensor, "P 6"]
         The upper-right corner of the 3D covariance matrices, stored in a vector.
     intr : Float[Tensor, "4"]
-        The intr parameters of camera [fx, fy, cx, cy].
+        The intrinsic parameters of camera [fx, fy, cx, cy].
     extr : Float[Tensor, "3 4"]
-        The extr parameters of camera [R|T].
+        The extrinsic parameters of camera [R|T].
     uv : Float[Tensor, "P 4"]
         2D positions for each point in the image.
     W : int

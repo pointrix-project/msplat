@@ -22,9 +22,9 @@ def project_point(
     xyz : Float[Tensor, "P 3"]
         3D position for each point.
     intr : Float[Tensor, "4"]
-        The intr parameters of camera [fx, fy, cx, cy].
+        The intrinsic parameters of camera [fx, fy, cx, cy].
     extr : Float[Tensor, "3 4"]
-        The extr parameters of camera [R|T].
+        The extrinsic parameters of camera [R|T].
     W : int
         Width of the image.
     H : int

@@ -25,9 +25,8 @@ def rasterization(
     rotate: Float[Tensor, "P 4"],
     opacity: Float[Tensor, "P 1"],
     feature: Float[Tensor, "P C"],
-    viewmat: Float[Tensor, "4 4"],
-    projmat: Float[Tensor, "4 4"],
-    camparam: Float[Tensor, "4"],
+    intr: Float[Tensor, "4"],
+    extr: Float[Tensor, "3 4"],
     W: int,
     H: int,
     bg: float,
@@ -47,10 +46,10 @@ def rasterization(
         Opacity values for each point.
     feature : Float[Tensor, "P C"]
         Features for each point to be alpha blended.
-    viewmat : Float[Tensor, "4 4"]
-        The world to view transform matrix.
-    projmat : Float[Tensor, "4 4"]
-        The world to screen transform matrix.
+    intr : Float[Tensor, "4"]
+        The intrinsic parameters of camera [fx, fy, cx, cy].
+    extr : Float[Tensor, "3 4"]
+        The extrinsic parameters of camera [R|T].
     camparam : Float[Tensor, "4"]
         The intrinsics of camera [fx, fy, cx, cy].
     W : int
@@ -66,7 +65,7 @@ def rasterization(
         Rendered feature maps.
     """
     # project points
-    (uv, depth) = project_point(xyz, viewmat, projmat, camparam, W, H)
+    (uv, depth) = project_point(xyz, intr, extr, W, H)
 
     visible = depth != 0
 
@@ -75,7 +74,7 @@ def rasterization(
 
     # ewa project
     (conic, radius, tiles_touched) = ewa_project(
-        xyz, cov3d, viewmat, camparam, uv, W, H, visible
+        xyz, cov3d, intr, extr, uv, W, H, visible
     )
 
     # sort

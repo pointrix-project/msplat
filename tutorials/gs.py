@@ -6,7 +6,6 @@ import math
 import numpy as np
 from tqdm import tqdm
 import dptr.gs as gs
-import matplotlib.pyplot as plt
 from PIL import Image
 
 class SimpleGaussian:
@@ -51,30 +50,28 @@ if __name__ == "__main__":
     seed = 123
     torch.manual_seed(seed)
     
-    bg = 0
     image_file = "./media/dptr.png"
-    img = np.array(Image.open(image_file))
+    img = np.array(Image.open(image_file))[:, :, :3]
     img = img.astype(np.float32) / 255.0
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
     
     C, H, W = gt.shape 
     
     bg = 0
-    fov_x = math.pi / 2.0
-    fx = 0.5 * float(W) / math.tan(0.5 * fov_x)
-    camparam = torch.Tensor([fx, fx, float(W) / 2, float(H) / 2]).cuda().float()
-    viewmat = torch.Tensor([[1.0, 0.0, 0.0, 0.0],
-                            [0.0, 1.0, 0.0, 0.0],
-                            [0.0, 0.0, 1.0, 0.0],
-                            [0.0, 0.0, 8.0, 1.0]]).cuda().float()
-    projmat = viewmat.clone()
+    fov = math.pi / 2.0
+    fx = 0.5 * float(W) / math.tan(0.5 * fov)
+    fy = 0.5 * float(H) / math.tan(0.5 * fov)
+    intr = torch.Tensor([fx, fy, float(W) / 2, float(H) / 2]).cuda().float()
+    extr = torch.Tensor([[1.0, 0.0, 0.0, 0.0],
+                         [0.0, 1.0, 0.0, 0.0],
+                         [0.0, 0.0, 1.0, 4.0]]).cuda().float()
     
     gaussians = SimpleGaussian(num_points=100000)
     
     max_iter = 4000
     frames = []
     progress_bar = tqdm(range(1, max_iter), desc="Training")
-    cal_loss = nn.SmoothL1Loss()
+    cal_loss = nn.MSELoss()
     
     for iteration in range(0, max_iter):
         
@@ -84,9 +81,8 @@ if __name__ == "__main__":
             gaussians.get_attribute("rotate"), 
             gaussians.get_attribute("opacity"),
             gaussians.get_attribute("rgb"),
-            viewmat,
-            projmat,
-            camparam,
+            intr,
+            extr,
             W, H, bg)
         
         loss = cal_loss(rendered_feature, gt)

@@ -11,8 +11,8 @@
  * @brief Launching CUDA kernel to perform point projection in a forward pass.
  *
  * @param[in] xyz         3D position of the 3D Gaussians in the scene.
- * @param[in] intr          The camera intrinsic parameters [fx, fy, cx, cy].
- * @param[in] extr         The camera extrinsic parameters [R|T].
+ * @param[in] intr        The camera intrinsic parameters [fx, fy, cx, cy].
+ * @param[in] extr        The camera extrinsic parameters [R|T].
  * @param[in] W           The width of the image.
  * @param[in] H           The height of the image.
  * @param[in] nearest     Nearest threshold for frustum culling.

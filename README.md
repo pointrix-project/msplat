@@ -12,11 +12,13 @@ Differentiable PoinT Renderer, backend for POINTRIX.
     <a href="">📰 <b> Document </b> </a>
 </p>
 
-
 The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serves as the backend of [POINTRIX]() and is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
-![dptr](media/media.gif)
 
-The logo of [DPTR](https://www.bing.com/images/create/a-3d-logo-made-of-small2c-dark-particles-for-an-ope/1-65d5d0c0f2a24c4ea2a1d3bbd9e2a371?id=G8uixCHHEt%2fNOZsGgDGSeA%3d%3d&view=detailv2&idpp=genimg&idpclose=1&thId=OIG3.JNO1BM32lVS9dsHkHxbH&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/).
+![dptr](media/dptr_w.png#gh-light-mode-only)
+![dptr](media/dptr_b.png#gh-dark-mode-only)
+
+The logo of [DPTR](https://www.bing.com/images/create/a-minimalist-logo-with-a-solid-white-background-th/1-65dc22883b234064b70d857744a00e96?id=Jl8gopEgQ7udGtZyYZjIIg%3d%3d&view=detailv2&idpp=genimg&idpclose=1&thId=OIG3.iiX1JtCk02kNJ_Zn5ORG&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/). The front is Potra Font, designed by Alejo Bergmann.
+
 
 ## How to install
 1. Install from source
@@ -132,17 +134,16 @@ Read the logo image, normalize it, and then convert it into a tensor with a shap
 ```
 
 ### Set a Camera
-In DPTR, the camera intrinsic parameters are represented by a tensor of shape [4], consisting of [fx, fy, cx, cy]. Here, fx and fy denote the focal lengths of the camera (in pixels), while cx and cy represent the offset of the principal point of the camera, relative to the center of the top-left pixel of the image.
+Set a camera.
 ```python
-    bg = 0
-    fov_x = math.pi / 2.0
-    fx = 0.5 * float(W) / math.tan(0.5 * fov_x)
-    camparam = torch.Tensor([fx, fx, float(W) / 2, float(H) / 2]).cuda().float()
-    viewmat = torch.Tensor([[1.0, 0.0, 0.0, 0.0],
-                            [0.0, 1.0, 0.0, 0.0],
-                            [0.0, 0.0, 1.0, 0.0],
-                            [0.0, 0.0, 8.0, 1.0]]).cuda().float()
-    projmat = viewmat.clone()
+    bg = 1
+    fov = math.pi / 2.0
+    fx = 0.5 * float(W) / math.tan(0.5 * fov)
+    fy = 0.5 * float(H) / math.tan(0.5 * fov)
+    intr = torch.Tensor([fx, fy, float(W) / 2, float(H) / 2]).cuda().float()
+    extr = torch.Tensor([[1.0, 0.0, 0.0, 0.0],
+                         [0.0, 1.0, 0.0, 0.0],
+                         [0.0, 0.0, 1.0, 4.0]]).cuda().float()
 ```
 
 ### Train
@@ -150,7 +151,7 @@ Create a 3D Gaussian point cloud and optimize it!
 ```python
     gaussians = SimpleGaussian(num_points=100000)
 
-    max_iter = 4000
+    max_iter = 10000
     frames = []
     progress_bar = tqdm(range(1, max_iter), desc="Training")
     cal_loss = nn.SmoothL1Loss()
@@ -163,14 +164,12 @@ Create a 3D Gaussian point cloud and optimize it!
             gaussians.get_attribute("rotate"), 
             gaussians.get_attribute("opacity"),
             gaussians.get_attribute("rgb"),
-            viewmat,
-            projmat,
-            camparam,
+            intr,
+            extr,
             W, H, bg)
         
         loss = cal_loss(rendered_feature, gt)
         loss.backward()
-        
         gaussians.step()
         
         progress_bar.set_postfix({"Loss": f"{loss:.{7}f}"})
@@ -205,9 +204,9 @@ python tutorials/gs.py
 ```
 
 ## Plans
-- [ ] Further enhance interface user-friendliness.
-- [ ] Optimization on camera.
-- [ ] Change camera to cv style.
+- [x] Optimization on camera.
+- [x] Change camera to cv style.
 - [ ] Higher order spherical harmonic.
 - [ ] Not only 3-channal SHs.
 - [ ] Spherical Gaussian.
+- [ ] Further enhance interface user-friendliness.
