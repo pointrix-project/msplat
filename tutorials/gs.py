@@ -1,12 +1,15 @@
 
 import os
+import math
+import cv2
 import torch
 import torch.nn as nn
-import math
-import numpy as np
 from tqdm import tqdm
+import numpy as np
+import urllib.request
+import imageio
+
 import dptr.gs as gs
-from PIL import Image
 
 class SimpleGaussian:
     def __init__(self, num_points=100000):
@@ -49,8 +52,11 @@ if __name__ == "__main__":
     seed = 123
     torch.manual_seed(seed)
     
-    image_file = "./media/dptr.png"
-    img = np.array(Image.open(image_file))[:, :, :3]
+    res = urllib.request.urlopen("https://i.postimg.cc/PJnzDJbk/dptr.png")
+    img = np.asarray(bytearray(res.read()), dtype="uint8")
+    img = cv2.imdecode(img, cv2.IMREAD_COLOR)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
     img = img.astype(np.float32) / 255.0
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
     
@@ -98,14 +104,12 @@ if __name__ == "__main__":
     
     progress_bar.close()
     
-    # save them as a gif with PIL
-    frames = [Image.fromarray(frame) for frame in frames]
-    out_dir = "media"
-    os.makedirs(out_dir, exist_ok=True)
-    frames[0].save(
-        f"{out_dir}/tutorial.gif",
+    # save them as a gif with imageio
+    imageio.mimsave(
+        f"tutorial.gif",
+        frames,
+        "GIF",
         save_all=True,
-        append_images=frames[1:],
         optimize=False,
         duration=5,
         loop=0,

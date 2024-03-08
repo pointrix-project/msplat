@@ -2,9 +2,8 @@
 *__pycache__
 *.pyc
 doc
-doxygen_workspace
 build
 *.egg-info
 *.so
-data
-media/tutorial.gif
+*.png
+*gif
