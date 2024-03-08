@@ -18,7 +18,7 @@ The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serving as the bac
 ![dptr](media/dptr_w.png#gh-light-mode-only)
 ![dptr](media/dptr_b.png#gh-dark-mode-only)
 
-The logo of [DPTR](https://www.bing.com/images/create/a-minimalist-logo-with-a-solid-white-background-th/1-65dc22883b234064b70d857744a00e96?id=Jl8gopEgQ7udGtZyYZjIIg%3d%3d&view=detailv2&idpp=genimg&idpclose=1&thId=OIG3.iiX1JtCk02kNJ_Zn5ORG&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/). The front is Potra Font, designed by Alejo Bergmann.
+The logo of [DPTR](https://www.bing.com/images/create/a-minimalist-logo-with-a-solid-white-background-th/1-65dc22883b234064b70d857744a00e96?id=Jl8gopEgQ7udGtZyYZjIIg%3d%3d&view=detailv2&idpp=genimg&idpclose=1&thId=OIG3.iiX1JtCk02kNJ_Zn5ORG&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/) with a prompt: *A minimalist logo with a solid white background throughout, an irregular splash graphic in the middle, the splash graphic in gradient colours, and white dots and lines in the splash graphic to form the circuit board.* The front is Potra Font, designed by Alejo Bergmann. 
 
 ## How to install
 1. Install from source
@@ -59,14 +59,14 @@ $$d\begin{bmatrix}
   1
 \end{bmatrix}$$
 
-where, $(X, Y, Z)$ are the coordinate of a 3D point in the world coordinate system, $(u,v)$ are the coordinate of the projection point in pixels, $d$ is the depth value. $K$ is a matrix of intrinsic parameters, $R_{cw}$ and $T_{cw}$ are extrinsic parameters.  $(c_x, c_y)$ is the principal point defined in the image coordinate system with the upper left corner of the image as the origin. In CG community, the principal point is usually set at the image center, i.e. $(c_x, c_y)=(\frac{float(W)}{2.0},\frac{float(H)}{2.0})$. $f_x$ and $f_y$ are the focal lengths in pixels.
+where, $(X, Y, Z)$ are the coordinate of a 3D point in the world coordinate system, $(u,v)$ are the coordinate of the projection point in **pixels**, $d$ is the depth value. $K$ is a matrix of intrinsic parameters, $R_{cw}$ and $T_{cw}$ are extrinsic parameters indicated **a tranform from world to camera**.  $(c_x, c_y)$ is the principal point defined in the image coordinate system with the **upper left corner** of the image as the origin. In CG community, the principal point is usually set at the image center, i.e. $(c_x, c_y)=(\frac{float(W)}{2.0},\frac{float(H)}{2.0})$. $f_x$ and $f_y$ are the focal lengths in pixels.
 
 - Intrinsic Parameters $[f_x, f_y, c_x, c_y]$
 - Extrinsic Parameters $[R_{cw}|t_{cw}]$
 
 
 ## Tutorial: Fitting the logo with 3D Gaussian Splatting
-In this tutorial, we will demonstrate how to use DPTR to implement 3D Gaussian Splatting (3DGS) to fit the DPTR logo step by step. If you are not familiar with 3DGS, you can learn more about it through the original [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) project.
+In this tutorial, we will demonstrate step-by-step how to use DPTR to implement a simple example of fitting the DPTR logo with 3D Gaussian Splatting (3DGS) step by step. If you are not familiar with 3DGS, you can learn more about it through the original [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) project.
 
 ### Create a simple colorful 3D Gaussian class
 First, we create a simplified class for colorful 3D Gaussian point cloud. The attributes we set include 3D position, scale, rotation, opacity, and RGB color, all of which are randomly initialized.
@@ -84,7 +84,7 @@ class SimpleGaussian:
         }
 ```
 
-Next, we set activation functions for each attribute to ensure that they always remain within reasonable bounds. For the scale, which must be greater than 0, we use the absolute values, not exponential functions, which are too steep. For the RGB color and opacity, which are within the range of [0, 1], we choose the sigmoid function. As for rotation, represented using unit quaternions where the magnitude must be 1, we use normalization function.
+Next, we set activation functions for each attribute to ensure that they always remain within reasonable bounds. For *scale*, which must be greater than 0, we use the absolute values. For *RGB color* and *opacity*, we choose the sigmoid function to constrain the range to 0 to 1. As *rotation*, represented as an unit quaternion, we use normalization function to ensure that the magnitude must be 1.
 
 ```python
         self._activations = {
@@ -197,7 +197,7 @@ We then save the results in the optimization process as a GIF image.
         loop=0,
     )
 ```
-The results are looking quite promising at the moment, but it's evident that certain details aren't being accurately captured. One straightforward solution would be to enhance the number of iterations and gaussian points, although this would inevitably extend the time required to finalize the optimization process.
+This current result looks pretty good, although certain details are not so perfect. To solve this problem, we could perform more iterations and use more Gaussian points, although this would extend the time needed to complete the optimization process.
 
 ![result](media/media.gif)
 

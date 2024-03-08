@@ -194,10 +194,10 @@ projectPointsBackward(const torch::Tensor &xyz,
 
     const int P = xyz.size(0);
     auto float_opts = xyz.options().dtype(torch::kFloat32);
-    auto double_opts = xyz.options().dtype(torch::kFloat64);
+    // auto double_opts = xyz.options().dtype(torch::kFloat64);
     torch::Tensor dL_dxyz = torch::zeros({P, 3}, float_opts);
-    torch::Tensor dL_dintr = torch::zeros({4}, double_opts);
-    torch::Tensor dL_dextr = torch::zeros({3, 4}, double_opts);
+    torch::Tensor dL_dintr = torch::zeros({4}, float_opts);
+    torch::Tensor dL_dextr = torch::zeros({3, 4}, float_opts);
 
     float *dL_dintr_ptr = nullptr;
     if (intr.requires_grad())
