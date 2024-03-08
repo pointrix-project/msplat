@@ -13,7 +13,7 @@ Differentiable PoinT Renderer, backend for POINTRIX.
     <a href="">📰 <b> Document </b> </a>
 </p>
 
-The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serves as the backend of [POINTRIX]() and is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
+The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serving as the backend of [POINTRIX](), is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
 
 ![dptr](media/dptr_w.png#gh-light-mode-only)
 ![dptr](media/dptr_b.png#gh-dark-mode-only)
