@@ -30,6 +30,7 @@ def rasterization(
     W: int,
     H: int,
     bg: float,
+    ndc: Float[Tensor, "P 2"]=None
 ) -> Float[Tensor, "C H W"]:
     """
     Vanilla 3D Gaussian Splatting rasterization pipeline.
@@ -58,6 +59,9 @@ def rasterization(
         Height of the image.
     bg : float
         Background color.
+    ndc: Float[Tensor, "P 2"]
+        Just for storing the gradients of NDC coordinates for adaptive density control, by default None.
+
 
     Returns
     -------
@@ -84,7 +88,7 @@ def rasterization(
 
     # alpha blending
     render_feature = alpha_blending(
-        uv, conic, opacity, feature, gaussian_ids_sorted, tile_range, bg, W, H
+        uv, conic, opacity, feature, gaussian_ids_sorted, tile_range, bg, W, H, ndc
     )
 
     return render_feature

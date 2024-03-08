@@ -14,6 +14,7 @@ def alpha_blending(
     bg: float,
     W: int,
     H: int,
+    ndc: Float[Tensor, "P 2"]=None
 ) -> Float[Tensor, "C H W"]:
     """
     Alpha Blending for sorted 2D planar Gaussian in a tile based manner.
@@ -38,6 +39,8 @@ def alpha_blending(
         Width of the image.
     H : int
         Height of the image.
+    ndc: Float[Tensor, "P 2"]
+        Just for storing the gradients of NDC coordinates for adaptive density control, by default None
 
     Returns
     -------
@@ -46,13 +49,13 @@ def alpha_blending(
     """
 
     return _AlphaBlending.apply(
-        uv, conic, opacity, feature, idx_sorted, title_bins, bg, W, H
+        uv, conic, opacity, feature, idx_sorted, title_bins, bg, W, H, ndc
     )
 
 
 class _AlphaBlending(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, uv, conic, opacity, feature, idx_sorted, tile_range, bg, W, H):
+    def forward(ctx, uv, conic, opacity, feature, idx_sorted, tile_range, bg, W, H, ndc):
         (render_feature, final_T, ncontrib) = _C.alpha_blending_forward(
             uv, conic, opacity, feature, idx_sorted, tile_range, bg, W, H
         )
@@ -60,6 +63,8 @@ class _AlphaBlending(torch.autograd.Function):
         ctx.W = W
         ctx.H = H
         ctx.bg = bg
+        ctx.ndc = ndc
+        
         ctx.save_for_backward(
             uv, conic, opacity, feature, idx_sorted, tile_range, final_T, ncontrib
         )
@@ -71,6 +76,7 @@ class _AlphaBlending(torch.autograd.Function):
         W = ctx.W
         H = ctx.H
         bg = ctx.bg
+        ndc = ctx.ndc
 
         (
             uv,
@@ -97,6 +103,11 @@ class _AlphaBlending(torch.autograd.Function):
             ncontrib,
             dL_drendered,
         )
+        
+        dL_dndc = None
+        if ndc is not None:
+            duv_dndc = torch.tensor([0.5 * W, 0.5 * H], dtype=uv.dtype, device=uv.device)
+            dL_dndc = dL_duv * duv_dndc[None, ...]
 
         grads = (
             # grads w.r.t uv
@@ -117,6 +128,8 @@ class _AlphaBlending(torch.autograd.Function):
             None,
             # grads w.r. H
             None,
+            # grads w.r. ndc
+            dL_dndc
         )
 
         return grads
