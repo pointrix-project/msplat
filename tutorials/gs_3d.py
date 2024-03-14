@@ -32,10 +32,6 @@ class Options:
     cam_radius: float = 2.4
     # fovy
     fovy: float = 49.1
-    # camera near plane
-    znear: float = 0.01
-    # camera far plane
-    zfar: float = 100
     # nvdiffrast backend setting
     force_cuda_rast: bool = False
 
@@ -50,7 +46,6 @@ class Model(nn.Module):
 
         # mesh renderer
         self.mesh = Mesh.load(self.opt.mesh, bound=0.9, front_dir=self.opt.front_dir)
-
 
         if not self.opt.force_cuda_rast:
             self.glctx = dr.RasterizeGLContext()
@@ -254,4 +249,4 @@ if __name__ == '__main__':
     model = Model(opt).cuda()
     model.fit()
     model.evaluate()
-    model.export_video(os.path.basename(opt.mesh.replace('.glb', '.mp4')))
+    model.export_video(os.path.basename(opt.mesh + '.mp4'))
