@@ -89,9 +89,7 @@ bg: float = 1 # scalar, background feature (here we use white RGB background)
 
 # differentiable rendering
 rendered_image = gs.rasterization(
-    xyzs, scales, rotations, opacity, rgbs
-    intr, extr,
-    H, W, bg,
+    xyzs, scales, rotations, opacity, rgbs, intr, extr, H, W, bg
 ) # [C, H, W]
 ```
 
@@ -120,7 +118,7 @@ rendered_image = gs.alpha_blending(
 )
 ```
 
-### Fitting the logo with 3D Gaussian Splatting
+### Fitting the logo image with Gaussian Splatting
 In this tutorial, we will demonstrate step-by-step how to use DPTR to implement a simple example of fitting the DPTR logo with 3D Gaussian Splatting (3DGS) step by step. If you are not familiar with 3DGS, you can learn more about it through the original [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) project.
 
 #### Create a simple colorful 3D Gaussian class
@@ -261,6 +259,8 @@ pip install -U imageio numpy tqdm opencv-python
 
 python tutorials/gs_2d.py
 ```
+
+### Fitting a 3D mesh with Gaussian splatting
 
 We also provide a tutorial for fitting a 3D mesh with Gaussian splatting [here](./tutorials/gs_3d.py):
 ```shell
