@@ -62,13 +62,63 @@ $$d\begin{bmatrix}
 * $(X, Y, Z)$ is the coordinate of a 3D point in the world coordinate system.
 * $(u,v)$ are the coordinate of the projection point in **pixels**, $d$ is the depth value. 
 * $K$ is a matrix of intrinsic parameters in pixels. $(c_x, c_y)$ is the principal point, which is usually the image center $(\frac{W}{2},\frac{H}{2})$. $f_x$ and $f_y$ are the focal lengths.
-* $R_{cw}$ and $T_{cw}$ are extrinsic parameters indicated **world-to-camera** transformation in  [**OpenCV/Colmap** convention](https://kit.kiui.moe/camera/#common-camera-coordinate-systems).
+* $R_{cw}$ and $T_{cw}$ are extrinsic parameters (view matrix) indicated **world-to-camera** transformation in  [**OpenCV/Colmap** convention](https://kit.kiui.moe/camera/#common-camera-coordinate-systems).
 
 In our API, you need to provide the camera parameters in the following format:
 - Intrinsic Parameters $[f_x, f_y, c_x, c_y]$
 - Extrinsic Parameters $[R_{cw}|t_{cw}]$
 
 ## Tutorials
+
+### Simple Usage Example
+
+```python
+import torch
+import dptr.gs as gs
+
+H: int = ... # image height
+W: int = ... # image width
+intr: torch.Tensor = ... # [4,], (fx, fy, cx, cy) in pixels
+extr: torch.Tensor = ... # [4, 4], camera extrinsics in OpenCV convention.
+xyzs: torch.Tensor = ... # [N, 3], Gaussian centers
+rgbs: torch.Tensor = ... # [N, C], Gaussian RGB features (or any other features with arbitrary channels!)
+opacity: torch.Tensor = ... # [N, 1], Gaussian opacity
+scales: torch.Tensor = ... # [N, 3], Gaussian scales
+rotations: torch.Tensor = ... # [N, 4], Gaussian rotations in quaternion
+bg: float = 1 # scalar, background feature (here we use white RGB background)
+
+# differentiable rendering
+rendered_image = gs.rasterization(
+    xyzs, scales, rotations, opacity, rgbs
+    intr, extr,
+    H, W, bg,
+) # [C, H, W]
+```
+
+This rendering process can also be broken down:
+```python
+# project points
+(uv, depth) = gs.project_point(xyzs, intr, extr, W, H)
+visible = depth != 0
+
+# compute cov3d
+cov3d = gs.compute_cov3d(scales, rotations, visible)
+
+# ewa project
+(conic, radius, tiles_touched) = gs.ewa_project(
+    xyzs, cov3d, intr, extr, uv, W, H, visible
+)
+
+# sort
+(gaussian_ids_sorted, tile_range) = gs.sort_gaussian(
+    uv, depth, W, H, radius, tiles_touched
+)
+
+# alpha blending
+rendered_image = gs.alpha_blending(
+    uv, conic, opacity, rgbs, gaussian_ids_sorted, tile_range, bg, W, H,
+)
+```
 
 ### Fitting the logo with 3D Gaussian Splatting
 In this tutorial, we will demonstrate step-by-step how to use DPTR to implement a simple example of fitting the DPTR logo with 3D Gaussian Splatting (3DGS) step by step. If you are not familiar with 3DGS, you can learn more about it through the original [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) project.
@@ -139,7 +189,6 @@ Read the logo image, normalize it, and then convert it into a tensor with a shap
 ```
 
 #### Set a Camera
-Set a camera.
 ```python
     bg = 1
     fov = math.pi / 2.0
