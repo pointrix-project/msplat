@@ -59,16 +59,21 @@ $$d\begin{bmatrix}
   1
 \end{bmatrix}$$
 
-where, $(X, Y, Z)$ are the coordinate of a 3D point in the world coordinate system, $(u,v)$ are the coordinate of the projection point in **pixels**, $d$ is the depth value. $K$ is a matrix of intrinsic parameters, $R_{cw}$ and $T_{cw}$ are extrinsic parameters indicated **a tranform from world to camera**.  $(c_x, c_y)$ is the principal point defined in the image coordinate system with the **upper left corner** of the image as the origin. In CG community, the principal point is usually set at the image center, i.e. $(c_x, c_y)=(\frac{float(W)}{2.0},\frac{float(H)}{2.0})$. $f_x$ and $f_y$ are the focal lengths in pixels.
+* $(X, Y, Z)$ is the coordinate of a 3D point in the world coordinate system.
+* $(u,v)$ are the coordinate of the projection point in **pixels**, $d$ is the depth value. 
+* $K$ is a matrix of intrinsic parameters in pixels. $(c_x, c_y)$ is the principal point, which is usually the image center $(\frac{W}{2},\frac{H}{2})$. $f_x$ and $f_y$ are the focal lengths.
+* $R_{cw}$ and $T_{cw}$ are extrinsic parameters indicated **world-to-camera** transformation in  [**OpenCV/Colmap** convention](https://kit.kiui.moe/camera/#common-camera-coordinate-systems).
 
+In our API, you need to provide the camera parameters in the following format:
 - Intrinsic Parameters $[f_x, f_y, c_x, c_y]$
 - Extrinsic Parameters $[R_{cw}|t_{cw}]$
 
+## Tutorials
 
-## Tutorial: Fitting the logo with 3D Gaussian Splatting
+### Fitting the logo with 3D Gaussian Splatting
 In this tutorial, we will demonstrate step-by-step how to use DPTR to implement a simple example of fitting the DPTR logo with 3D Gaussian Splatting (3DGS) step by step. If you are not familiar with 3DGS, you can learn more about it through the original [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) project.
 
-### Create a simple colorful 3D Gaussian class
+#### Create a simple colorful 3D Gaussian class
 First, we create a simplified class for colorful 3D Gaussian point cloud. The attributes we set include 3D position, scale, rotation, opacity, and RGB color, all of which are randomly initialized.
 ```python
 class SimpleGaussian:
@@ -122,7 +127,7 @@ Then, we need a function to retrieve the attributes of the 3D Gaussian, returnin
             raise ValueError(f"Attribute or activation for {name} is not VALID!")
 ```
 
-### Read the target logo image
+#### Read the target logo image
 Read the logo image, normalize it, and then convert it into a tensor with a shape of [C, H, W].
 ```python
     image_file = "https://i.postimg.cc/PJnzDJbk/dptr.png"
@@ -133,7 +138,7 @@ Read the logo image, normalize it, and then convert it into a tensor with a shap
     C, H, W = gt.shape
 ```
 
-### Set a Camera
+#### Set a Camera
 Set a camera.
 ```python
     bg = 1
@@ -146,7 +151,7 @@ Set a camera.
                          [0.0, 0.0, 1.0, 4.0]]).cuda().float()
 ```
 
-### Train
+#### Train
 Create a 3D Gaussian point cloud and optimize it!
 ```python
     gaussians = SimpleGaussian(num_points=10000)
@@ -201,9 +206,19 @@ This current result looks pretty good, although certain details are not so perfe
 
 ![result](https://i.postimg.cc/BZNGMKyb/media.gif)
 
-The complete code for this tutorial can be found in: "./tutorials/gs.py". And you could easily run it by:
+The complete code for this tutorial can be found [here](./tutorials/gs_2d.py). And you could easily run it by:
 ```shell
-python tutorials/gs.py
+pip install -U imageio numpy tqdm opencv-python
+
+python tutorials/gs_2d.py
+```
+
+We also provide a tutorial for fitting a 3D mesh with Gaussian splatting [here](./tutorials/gs_3d.py):
+```shell
+pip install -U imageio numpy tqdm tyro kiui 
+pip install git+https://github.com/NVlabs/nvdiffrast
+
+python tutorials/gs_3d.py --mesh <path/to/mesh.obj>
 ```
 
 ## Plans
