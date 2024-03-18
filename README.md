@@ -15,8 +15,8 @@ Differentiable PoinT Renderer, backend for POINTRIX.
 
 The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serving as the backend of [POINTRIX](), is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
 
-![dptr](https://i.postimg.cc/Mpgw1JLY/dptr-w.png#gh-light-mode-only)
-![dptr](https://i.postimg.cc/x1XYk16C/dptr-b.png#gh-dark-mode-only)
+![dptr](media/dptr-w.png#gh-light-mode-only)
+![dptr](media/dptr-b.png#gh-dark-mode-only)
 
 The logo of [DPTR](https://www.bing.com/images/create/a-minimalist-logo-with-a-solid-white-background-th/1-65dc22883b234064b70d857744a00e96?id=Jl8gopEgQ7udGtZyYZjIIg%3d%3d&view=detailv2&idpp=genimg&idpclose=1&thId=OIG3.iiX1JtCk02kNJ_Zn5ORG&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/) with a prompt: *A minimalist logo with a solid white background throughout, an irregular splash graphic in the middle, the splash graphic in gradient colours, and white dots and lines in the splash graphic to form the circuit board.* The front is Potra Font, designed by Alejo Bergmann. 
 
@@ -178,7 +178,7 @@ Then, we need a function to retrieve the attributes of the 3D Gaussian, returnin
 #### Read the target logo image
 Read the logo image, normalize it, and then convert it into a tensor with a shape of [C, H, W].
 ```python
-    image_file = "https://i.postimg.cc/PJnzDJbk/dptr.png"
+    image_file = "./media/dptr.png"
     img = np.array(Image.open(image_file))
     img = img.astype(np.float32) / 255.0
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
