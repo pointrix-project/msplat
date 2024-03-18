@@ -7,3 +7,4 @@ build
 *.so
 *.png
 *gif
+third_party/*
