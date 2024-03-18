@@ -23,10 +23,11 @@ Differentiable PoinT Renderer, backend for POINTRIX.
     Differentiable PoinT Renderer, backend for POINTRIX.
     <br />
     <a href="https://pointrix-project.github.io/pointrix/">
-    <strong>Pointrix🏠 | </strong></a>
+    <strong>| 🏠 Pointrix | </strong></a>
     <a href="https://countermaker.github.io/pointrix.io/">
-    <strong>Report📄 (Comming soon) | </strong></a>
+    <strong>📄 Report | </strong></a>
     <a href="https://github.com/pointrix-project/dptr">
+    <strong>🌐 Document | </strong></a>
     <br />
     <br />
   </p>
