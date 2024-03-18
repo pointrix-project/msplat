@@ -179,7 +179,7 @@ Then, we need a function to retrieve the attributes of the 3D Gaussian, returnin
 Read the logo image, normalize it, and then convert it into a tensor with a shape of [C, H, W].
 ```python
     image_file = "./media/dptr.png"
-    img = np.array(Image.open(image_file))
+    img = np.array(Image.open(image_file))[..., :3]
     img = img.astype(np.float32) / 255.0
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
     
