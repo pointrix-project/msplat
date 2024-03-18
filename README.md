@@ -24,9 +24,9 @@ Differentiable PoinT Renderer, backend for POINTRIX.
     <br />
     <a href="https://pointrix-project.github.io/pointrix/">
     <strong>| 🏠 Pointrix | </strong></a>
-    <a href="https://countermaker.github.io/pointrix.io/">
+    <a href="https://pointrix-project.github.io/pointrix/">
     <strong>📄 Report | </strong></a>
-    <a href="https://github.com/pointrix-project/dptr">
+    <a href="https://pointrix-project.github.io/pointrix/index.html">
     <strong>🌐 Document | </strong></a>
     <br />
     <br />
