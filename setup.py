@@ -56,10 +56,10 @@ def make_extensions():
     return exts
 
 setup(
-    name="dprt",
+    name="dptr",
     version=__version__,
     description="Differentiable PoinT Cloud Renderer (DPTR) powers POINTRIX for differentiable rendering of point clouds.",
-    url="https://github.com/NJU-3DV/DPTR",
+    url="https://github.com/pointrix-project/dptr",
     python_requires=">=3.7",
     install_requires=[
         "torch",
