@@ -1,12 +1,9 @@
 
-import os
 import math
-import cv2
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 import numpy as np
-import urllib.request
 import imageio
 
 import dptr.gs as gs
@@ -52,10 +49,10 @@ if __name__ == "__main__":
     seed = 123
     torch.manual_seed(seed)
     
-    res = urllib.request.urlopen("https://i.postimg.cc/PJnzDJbk/dptr.png")
-    img = np.asarray(bytearray(res.read()), dtype="uint8")
-    img = cv2.imdecode(img, cv2.IMREAD_COLOR)
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    image_file = "./media/dptr.png"
+    img = imageio.imread(image_file)
+    img = img.astype(np.float32) / 255.0
+    gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
 
     img = img.astype(np.float32) / 255.0
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
