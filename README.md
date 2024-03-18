@@ -246,8 +246,6 @@ We then save the results in the optimization process as a GIF image.
 ```
 This current result looks pretty good, although certain details are not so perfect. To solve this problem, we could perform more iterations and use more Gaussian points, although this would extend the time needed to complete the optimization process.
 
-<video controls src="media/tutorial_2d.mp4" title="Title"></video>
-
 The complete code for this tutorial can be found [here](./tutorials/gs_2d.py). And you could easily run it by:
 ```shell
 pip install -U imageio numpy tqdm opencv-python
@@ -264,11 +262,3 @@ pip install git+https://github.com/NVlabs/nvdiffrast
 
 python tutorials/gs_3d.py --mesh <path/to/mesh.obj>
 ```
-
-## Plans
-- [x] Optimization on camera.
-- [x] Change camera to cv style.
-- [ ] Higher order spherical harmonic.
-- [ ] Not only 3-channal SHs.
-- [ ] Spherical Gaussian.
-- [ ] Further enhance interface user-friendliness.
