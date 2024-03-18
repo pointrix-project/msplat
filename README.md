@@ -15,10 +15,10 @@ Differentiable PoinT Renderer, backend for POINTRIX.
 
 The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serving as the backend of [POINTRIX](https://github.com/pointrix-project/pointrix), is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
 
-![dptr](./media/dptr-w.png#gh-light-mode-only)
-![dptr](./media/dptr-b.png#gh-dark-mode-only)
+![dptr](./media/dptr_landscape_b.png#gh-light-mode-only)
+![dptr](./media/dptr_landscape_w.png#gh-dark-mode-only)
 
-The logo of [DPTR](https://www.bing.com/images/create/a-minimalist-logo-with-a-solid-white-background-th/1-65dc22883b234064b70d857744a00e96?id=Jl8gopEgQ7udGtZyYZjIIg%3d%3d&view=detailv2&idpp=genimg&idpclose=1&thId=OIG3.iiX1JtCk02kNJ_Zn5ORG&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/) with a prompt: *A minimalist logo with a solid white background throughout, an irregular splash graphic in the middle, the splash graphic in gradient colours, and white dots and lines in the splash graphic to form the circuit board.* The front is Potra Font, designed by Alejo Bergmann. 
+The shape of DPTR logo is desisned by [Microsoft Designer](https://designer.microsoft.com/) with a prompt: *A minimalist logo with a solid white background throughout, an irregular splash graphic in the middle, the splash graphic in gradient colours, and white dots and lines in the splash graphic to form the circuit board.* The front used in logo is Potra Font, designed by Alejo Bergmann. 
 
 ## How to install
 1. Install from source
@@ -85,7 +85,7 @@ rgbs: torch.Tensor = ... # [N, C], Gaussian RGB features (or any other features 
 opacity: torch.Tensor = ... # [N, 1], Gaussian opacity
 scales: torch.Tensor = ... # [N, 3], Gaussian scales
 rotations: torch.Tensor = ... # [N, 4], Gaussian rotations in quaternion
-bg: float = 1 # scalar, background feature (here we use white RGB background)
+bg: float = 0 # scalar, background for rendered feature maps
 
 # differentiable rendering
 rendered_image = gs.rasterization(
@@ -178,9 +178,9 @@ Then, we need a function to retrieve the attributes of the 3D Gaussian, returnin
 #### Read the target logo image
 Read the logo image, normalize it, and then convert it into a tensor with a shape of [C, H, W].
 ```python
-    image_file = "./media/dptr.png"
-    img = np.array(Image.open(image_file))[..., :3]
+    img = imageio.imread("./media/dptr_logo.png")
     img = img.astype(np.float32) / 255.0
+    img = img[:, :, 0:3] * img[:, :, 3:] + 1.0 * (1 - img[:, :, 3:])
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
     
     C, H, W = gt.shape
@@ -195,7 +195,7 @@ Read the logo image, normalize it, and then convert it into a tensor with a shap
     intr = torch.Tensor([fx, fy, float(W) / 2, float(H) / 2]).cuda().float()
     extr = torch.Tensor([[1.0, 0.0, 0.0, 0.0],
                          [0.0, 1.0, 0.0, 0.0],
-                         [0.0, 0.0, 1.0, 4.0]]).cuda().float()
+                         [0.0, 0.0, 1.0, 2.5]]).cuda().float()
 ```
 
 #### Train
@@ -228,30 +228,25 @@ Create a 3D Gaussian point cloud and optimize it!
         progress_bar.update(1)
         
         if iteration % 20 == 0:
-            show_data = render_feature.detach().permute(1, 2, 0)
-            show_data = torch.clamp(show_data, 0.0, 1.0)
-            frames.append((show_data.cpu().numpy() * 255).astype(np.uint8))
+            render = rendered_feature.detach().permute(1, 2, 0)
+            render = torch.clamp(render, 0.0, 1.0)
+            render = (render.cpu().numpy() * 255).astype(np.uint8)
+            
+            empty = np.ones((render.shape[0], 2, 3), dtype=np.uint8)
+            show_data = np.hstack((render, empty, (img * 255).astype(np.uint8)))
+            frames.append(show_data)
     
     progress_bar.close()
 ```
 
 We then save the results in the optimization process as a GIF image.
 ```python
-    frames = [Image.fromarray(frame) for frame in frames]
-    out_dir = "media"
-    os.makedirs(out_dir, exist_ok=True)
-    frames[0].save(
-        f"{out_dir}/tutorial.gif",
-        save_all=True,
-        append_images=frames[1:],
-        optimize=False,
-        duration=5,
-        loop=0,
-    )
+    frames = np.stack(frames, axis=0)
+    imageio.mimwrite("tutorial_2d.mp4", frames, fps=30)
 ```
 This current result looks pretty good, although certain details are not so perfect. To solve this problem, we could perform more iterations and use more Gaussian points, although this would extend the time needed to complete the optimization process.
 
-![result](https://i.postimg.cc/BZNGMKyb/media.gif)
+<video controls src="media/tutorial_2d.mp4" title="Title"></video>
 
 The complete code for this tutorial can be found [here](./tutorials/gs_2d.py). And you could easily run it by:
 ```shell

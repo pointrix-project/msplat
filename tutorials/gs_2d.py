@@ -49,8 +49,9 @@ if __name__ == "__main__":
     seed = 123
     torch.manual_seed(seed)
     
-    img = imageio.imread("./media/dptr.png")[:, :, 0:3]
+    img = imageio.imread("./media/dptr_logo.png")
     img = img.astype(np.float32) / 255.0
+    img = img[:, :, 0:3] * img[:, :, 3:] + 1.0 * (1 - img[:, :, 3:])
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
     
     C, H, W = gt.shape 
@@ -91,19 +92,17 @@ if __name__ == "__main__":
         progress_bar.update(1)
         
         if iteration % 20 == 0:
-            show_data = rendered_feature.detach().permute(1, 2, 0)
-            show_data = torch.clamp(show_data, 0.0, 1.0)
-            frames.append((show_data.cpu().numpy() * 255).astype(np.uint8))
+            render = rendered_feature.detach().permute(1, 2, 0)
+            render = torch.clamp(render, 0.0, 1.0)
+            render = (render.cpu().numpy() * 255).astype(np.uint8)
+            
+            empty = np.ones((render.shape[0], 2, 3), dtype=np.uint8)
+            show_data = np.hstack((render, empty, (img * 255).astype(np.uint8)))
+            frames.append(show_data)
     
     progress_bar.close()
     
-    # save them as a gif with imageio
-    imageio.mimsave(
-        f"tutorial.gif",
-        frames,
-        "GIF",
-        save_all=True,
-        optimize=False,
-        duration=5,
-        loop=0,
-    )
+    # save them as a video with imageio
+    frames = np.stack(frames, axis=0)
+    imageio.mimwrite("tutorial_2d.mp4", frames, fps=30)
+    
