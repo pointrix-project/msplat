@@ -15,8 +15,8 @@ Differentiable PoinT Renderer, backend for POINTRIX.
 
 The **D**ifferentiable **P**oin**T** **R**enderer (**DPTR**), serving as the backend of [POINTRIX](), is designed to offer foundational functionalities for differentiable point cloud rendering. Presently, DPTR exclusively supports tile-based 3D Gaussian Splatting rasterization. However, the roadmap includes the incorporation of additional point-based rendering primitives.
 
-![dptr-w.png](https://i.postimg.cc/Mpgw1JLY/dptr-w.png#gh-light-mode-only)
-![dptr-b.png](https://i.postimg.cc/x1XYk16C/dptr-b.png#gh-dark-mode-only)
+![dptr](https://i.postimg.cc/Mpgw1JLY/dptr-w.png#gh-light-mode-only)
+![dptr](https://i.postimg.cc/x1XYk16C/dptr-b.png#gh-dark-mode-only)
 
 The logo of [DPTR](https://www.bing.com/images/create/a-minimalist-logo-with-a-solid-white-background-th/1-65dc22883b234064b70d857744a00e96?id=Jl8gopEgQ7udGtZyYZjIIg%3d%3d&view=detailv2&idpp=genimg&idpclose=1&thId=OIG3.iiX1JtCk02kNJ_Zn5ORG&FORM=SYDBIC) is desisned by [Microsoft Designer](https://designer.microsoft.com/) with a prompt: *A minimalist logo with a solid white background throughout, an irregular splash graphic in the middle, the splash graphic in gradient colours, and white dots and lines in the splash graphic to form the circuit board.* The front is Potra Font, designed by Alejo Bergmann. 
 
@@ -70,7 +70,7 @@ In our API, you need to provide the camera parameters in the following format:
 
 ## Tutorials
 
-### Simple Usage Example
+### Quick Start
 
 ```python
 import torch
@@ -118,8 +118,8 @@ rendered_image = gs.alpha_blending(
 )
 ```
 
-### Fitting the logo image with Gaussian Splatting
-In this tutorial, we will demonstrate step-by-step how to use DPTR to implement a simple example of fitting the DPTR logo with 3D Gaussian Splatting (3DGS) step by step. If you are not familiar with 3DGS, you can learn more about it through the original [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) project.
+### A 2D Example: Fitting a 2D image with Gaussian Splatting
+In this tutorial, we will demonstrate step-by-step how to use DPTR to implement a simple example of fitting the DPTR logo with 3D Gaussian Splatting (3DGS) step by step.
 
 #### Create a simple colorful 3D Gaussian class
 First, we create a simplified class for colorful 3D Gaussian point cloud. The attributes we set include 3D position, scale, rotation, opacity, and RGB color, all of which are randomly initialized.
@@ -260,7 +260,7 @@ pip install -U imageio numpy tqdm opencv-python
 python tutorials/gs_2d.py
 ```
 
-### Fitting a 3D mesh with Gaussian splatting
+### 3D Example: Fitting a 3D mesh with Gaussian splatting
 
 We also provide a tutorial for fitting a 3D mesh with Gaussian splatting [here](./tutorials/gs_3d.py):
 ```shell
