@@ -5,6 +5,5 @@ doc
 build
 *.egg-info
 *.so
-*.png
 *gif
 third_party/*
