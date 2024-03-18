@@ -50,7 +50,7 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
     
     image_file = "./media/dptr.png"
-    img = imageio.imread(image_file)
+    img = imageio.imread(image_file)[..., :3]
     img = img.astype(np.float32) / 255.0
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
 
