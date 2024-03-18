@@ -15,8 +15,8 @@ Differentiable PoinT Renderer, backend for POINTRIX.
 <div align="center">
     <p align="center">
       <picture>
-      <source srcset="./media/dptr_landscape_b.png" media="(prefers-color-scheme: dark)">
-      <source srcset="./media/dptr_landscape_w.png" media="(prefers-color-scheme: light)">
+      <source srcset="./media/dptr_landscape_w.png" media="(prefers-color-scheme: dark)">
+      <source srcset="./media/dptr_landscape_b.png" media="(prefers-color-scheme: light)">
       <img alt="dptr" src="./media/dptr_landscape_b.png" width="80%">
       </picture>
   </p>
