@@ -82,7 +82,7 @@ __global__ void projectPointBackwardCUDAKernel(const int P,
     
     // tmp.z is depth[idx] != 0
     float norm1 = 1.0 / tmp.z;
-    float norm2 = 1.0 / tmp.z * tmp.z;
+    float norm2 = 1.0 / (tmp.z * tmp.z);
 
     // dL_dxyz
     dL_dxyz[idx].x +=
