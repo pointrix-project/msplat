@@ -24,8 +24,8 @@ The logo of [DPTR](https://www.bing.com/images/create/a-minimalist-logo-with-a-s
 1. Install from source
 ```shell
 # clone the code from github
-git clone https://github.com/NJU-3DV/DPTR.git --recursive
-cd DPTR
+git clone https://github.com/pointrix-project/dptr.git --recursive
+cd dptr
 # install dptr
 pip install .
 ```
