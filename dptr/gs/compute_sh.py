@@ -6,8 +6,7 @@ import dptr.gs._C as _C
 
 
 def compute_sh(
-    shs: Float[Tensor, "P D C"],
-    degree: int,
+    shs: Float[Tensor, "P C D"],
     view_dirs: Float[Tensor, "P 3"],
     visible: Bool[Tensor, "P 1"] = None,
 ) -> Float[Tensor, "P 3"]:
@@ -16,10 +15,8 @@ def compute_sh(
 
     Parameters
     ----------
-    shs : Float[Tensor, "P D C"]
+    shs : Float[Tensor, "P C D"]
         Spherical Harmonics(SHs).
-    degree : int
-        The degree of SHs.
     view_dirs : Float[Tensor, "P 3"]
         Normalized view direction.
     visible : Bool[Tensor, "P 1"], optional
@@ -27,41 +24,37 @@ def compute_sh(
 
     Returns
     -------
-    rgb_color : Float[Tensor, "P 3"]
-        The view-dependent RGB color.
+    value : Float[Tensor, "P 3"]
+        Value of SH evaluation.
     """
     if visible is None:
         visible = torch.ones_like(shs[:, 0, 0], dtype=torch.bool)
 
-    return _ComputeSH.apply(shs, degree, view_dirs, visible)
+    return _ComputeSH.apply(shs, view_dirs, visible)
 
 
 class _ComputeSH(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, shs, degree, view_dirs, visible):
-        (color, clamped) = _C.compute_sh_forward(shs, degree, view_dirs, visible)
+    def forward(ctx, shs, view_dirs, visible):
+        value = _C.compute_sh_forward(shs, view_dirs, visible)
 
         # save variables for backward
-        ctx.degree = degree
-        ctx.save_for_backward(shs, view_dirs, visible, clamped)
+        ctx.save_for_backward(shs, view_dirs, visible)
 
-        return color
+        return value
 
     @staticmethod
-    def backward(ctx, dL_dcolor):
+    def backward(ctx, dL_dvalue):
         # get saved variables from forward
-        degree = ctx.degree
-        (shs, view_dirs, visible, clamped) = ctx.saved_tensors
+        (shs, view_dirs, visible) = ctx.saved_tensors
 
         (dL_dshs, dL_dvdirs) = _C.compute_sh_backward(
-            shs, degree, view_dirs, visible, clamped, dL_dcolor
+            shs, view_dirs, visible, dL_dvalue
         )
 
         grads = (
             # loss gradient w.r.t shs
             dL_dshs,
-            # loss gradient w.r.t dgree
-            None,
             # loss gradient w.r.t view_dirs
             dL_dvdirs,
             # loss gradient w.r.t visible
