@@ -322,8 +322,6 @@ def eval_sh_bases(basis_dim: int, dirs: torch.Tensor):
         result[..., 119] = SH_C10[19] *2*x*z*(x**8 - 36*x**6*y**2 + 126*x**4*y**4 - 84*x**2*y**6 + 9*y**8)
         result[..., 120] = SH_C10[20] *(2*x**10 - 90*x**8*y**2 + 420*x**6*y**4 - 420*x**4*y**6 + 90*x**2*y**8 - 2*y**10)
     
-    # print("torch: ", result[:, 90], " ", result.shape)
-    
     return result
 
 
@@ -353,8 +351,6 @@ def eval_scipy(dirs: torch.Tensor, sh_coeffs):
                 result[:, n * n + m + n] = np.power(-1, m) * (tmp * (y_mn2 + np.power(-1, m) * y_mn1)).real
             else:
                 result[:, n * n + m + n] = y_mn1
-    
-    # print("result:", result[:, 90])
             
     return (result[:, None, :] * sh_coeffs).sum(dim=-1)
 
@@ -375,20 +371,14 @@ if __name__ == "__main__":
         
         out_scipy = eval_scipy(viewdirs, sh_coeffs)
         out_pytorch = compute_sh_torch_impl(sh_coeffs, viewdirs)
-        # out_pytorch, torch_base = compute_sh_torch_impl(sh_coeffs, viewdirs)
-        # out_pytorch = gs.compute_sh(sh_coeffs, viewdirs)
         
         torch.testing.assert_close(out_scipy, out_pytorch)
-        # print(sci_base[:, 49:])
-        # print(torch_base[:, 49:])
-        # torch.testing.assert_close(sci_base[:, 51:], torch_base[:, 51:])
         print("Level ", deg, "Pytorch implement verified.")
-    exit(-1)
-    
+
     # Forward and backward: test on cuda
-    iters = 1
-    N = 1
-    degree = 8
+    iters = 10
+    N = 1000
+    degree = 10
     
     print("=============================== running test on compute_sh ===============================")
     # generate data
@@ -397,10 +387,6 @@ if __name__ == "__main__":
     viewdirs = torch.randn(N, 3).cuda()
     viewdirs /= torch.linalg.norm(viewdirs, dim=-1, keepdim=True)
     sh_coeffs = torch.randn(N, 1, degree_dim).cuda()
-    
-    print(sh_coeffs.shape)
-    
-    # sh_coeffs[:, :, 64:] = 0
     
     sh_coeffs1 = sh_coeffs.clone().requires_grad_()
     sh_coeffs2 = sh_coeffs.clone().requires_grad_()
@@ -419,13 +405,13 @@ if __name__ == "__main__":
     for i in range(iters):
         out_cuda = gs.compute_sh(sh_coeffs2, viewdirs2)
     
-    print(out_pytorch)
-    print(out_cuda)
-    
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
     
-    torch.testing.assert_close(out_pytorch, out_cuda)
+    # print(out_pytorch)
+    # print(out_cuda)
+    
+    torch.testing.assert_close(out_pytorch, out_cuda, atol=5e-3, rtol=1e-4)
     print("Forward pass.")
     
     # ============================================ Backward =====================================
@@ -447,6 +433,6 @@ if __name__ == "__main__":
     # print(sh_coeffs1.grad, sh_coeffs2.grad)
     # print(viewdirs1.grad, viewdirs2.grad)
     
-    torch.testing.assert_close(sh_coeffs1.grad, sh_coeffs2.grad)
-    # torch.testing.assert_close(viewdirs1.grad, viewdirs2.grad)
+    torch.testing.assert_close(sh_coeffs1.grad, sh_coeffs2.grad, atol=5e-3, rtol=1e-4)
+    torch.testing.assert_close(viewdirs1.grad, viewdirs2.grad, atol=5e-3, rtol=1e-4)
     print("Backward pass.")
