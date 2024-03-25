@@ -504,42 +504,42 @@ __forceinline__ __device__ float evaluateSH10Forward(const float *sh,
 
 __forceinline__ __device__ void evaluateSH0Backward(const float *sh,
                                                     const float3 dir,
-                                                    const float dL_dvalue,
+                                                    const float dL_dval,
                                                     float *dL_dsh,
                                                     float3 *dL_ddir) {
-    dL_dsh[0] = SH_C0 * dL_dvalue;
+    dL_dsh[0] = dL_dval * SH_C0;
 }
 
 __forceinline__ __device__ void evaluateSH1Backward(const float *sh,
                                                     const float3 dir,
-                                                    const float dL_dvalue,
+                                                    const float dL_dval,
                                                     float *dL_dsh,
                                                     float3 *dL_ddir) {
-    dL_dsh[1] = SH_C1[0] * dir.y * dL_dvalue;
-    dL_dsh[2] = SH_C1[1] * dir.z * dL_dvalue;
-    dL_dsh[3] = SH_C1[0] * dir.x * dL_dvalue;
+    dL_dsh[1] = dL_dval * SH_C1[0] * dir.y;
+    dL_dsh[2] = dL_dval * SH_C1[1] * dir.z;
+    dL_dsh[3] = dL_dval * SH_C1[0] * dir.x;
 
     float3 dvalue_ddir = {SH_C1[0] * sh[3], SH_C1[0] * sh[1], SH_C1[1] * sh[2]};
 
-    dL_ddir[0].x += dvalue_ddir.x * dL_dvalue;
-    dL_ddir[0].y += dvalue_ddir.y * dL_dvalue;
-    dL_ddir[0].z += dvalue_ddir.z * dL_dvalue;
+    dL_ddir[0].x += dvalue_ddir.x * dL_dval;
+    dL_ddir[0].y += dvalue_ddir.y * dL_dval;
+    dL_ddir[0].z += dvalue_ddir.z * dL_dval;
 }
 
 __forceinline__ __device__ void evaluateSH2Backward(const float *sh,
                                                     const float3 dir,
-                                                    const float dL_dvalue,
+                                                    const float dL_dval,
                                                     float *dL_dsh,
                                                     float3 *dL_ddir) {
     float x = dir.x, y = dir.y, z = dir.z;
     float x2 = x * x, y2 = y * y, z2 = z * z;
     float xy = x * y, yz = y * z, xz = x * z;
 
-    dL_dsh[4] = SH_C2[0] * xy;
-    dL_dsh[5] = SH_C2[1] * yz;
-    dL_dsh[6] = SH_C2[2] * (2.0f * z2 - x2 - y2);
-    dL_dsh[7] = SH_C2[1] * xz;
-    dL_dsh[8] = SH_C2[0] * 0.5 * (x2 - y2);
+    dL_dsh[4] = dL_dval * SH_C2[0] * xy;
+    dL_dsh[5] = dL_dval * SH_C2[1] * yz;
+    dL_dsh[6] = dL_dval * SH_C2[2] * (2.0f * z2 - x2 - y2);
+    dL_dsh[7] = dL_dval * SH_C2[1] * xz;
+    dL_dsh[8] = dL_dval * SH_C2[0] * 0.5 * (x2 - y2);
 
     float3 dvalue_ddir = {0, 0, 0};
     dvalue_ddir.x += SH_C2[0] * sh[4] * y;
@@ -556,27 +556,27 @@ __forceinline__ __device__ void evaluateSH2Backward(const float *sh,
     dvalue_ddir.z += SH_C2[2] * sh[6] * 4 * z;
     dvalue_ddir.z += SH_C2[1] * sh[7] * x;
 
-    dL_ddir[0].x += dvalue_ddir.x * dL_dvalue;
-    dL_ddir[0].y += dvalue_ddir.y * dL_dvalue;
-    dL_ddir[0].z += dvalue_ddir.z * dL_dvalue;
+    dL_ddir[0].x += dvalue_ddir.x * dL_dval;
+    dL_ddir[0].y += dvalue_ddir.y * dL_dval;
+    dL_ddir[0].z += dvalue_ddir.z * dL_dval;
 }
 
 __forceinline__ __device__ void evaluateSH3Backward(const float *sh,
                                                     const float3 dir,
-                                                    const float dL_dvalue,
+                                                    const float dL_dval,
                                                     float *dL_dsh,
                                                     float3 *dL_ddir) {
     float x = dir.x, y = dir.y, z = dir.z;
     float x2 = x * x, y2 = y * y, z2 = z * z;
     float xy = x * y, yz = y * z, xz = x * z;
 
-    dL_dsh[9] = SH_C3[0] * y * (3.0f * x2 - y2);
-    dL_dsh[10] = SH_C3[1] * xy * z;
-    dL_dsh[11] = SH_C3[2] * y * (4.0f * z2 - x2 - y2);
-    dL_dsh[12] = SH_C3[3] * z * (2.0f * z2 - 3.0f * x2 - 3.0f * y2);
-    dL_dsh[13] = SH_C3[2] * x * (4.0f * z2 - x2 - y2);
-    dL_dsh[14] = SH_C3[1] * z * 0.5 * (x2 - y2);
-    dL_dsh[15] = SH_C3[0] * x * (x2 - 3.0f * y2);
+    dL_dsh[9] = dL_dval * SH_C3[0] * y * (3.0f * x2 - y2);
+    dL_dsh[10] = dL_dval * SH_C3[1] * xy * z;
+    dL_dsh[11] = dL_dval * SH_C3[2] * y * (4.0f * z2 - x2 - y2);
+    dL_dsh[12] = dL_dval * SH_C3[3] * z * (2.0f * z2 - 3.0f * x2 - 3.0f * y2);
+    dL_dsh[13] = dL_dval * SH_C3[2] * x * (4.0f * z2 - x2 - y2);
+    dL_dsh[14] = dL_dval * SH_C3[1] * z * 0.5 * (x2 - y2);
+    dL_dsh[15] = dL_dval * SH_C3[0] * x * (x2 - 3.0f * y2);
 
     float3 dvalue_ddir = {0, 0, 0};
     dvalue_ddir.x += SH_C3[0] * sh[9] * 6 * xy;
@@ -601,14 +601,14 @@ __forceinline__ __device__ void evaluateSH3Backward(const float *sh,
     dvalue_ddir.z += SH_C3[2] * sh[13] * 8 * xz;
     dvalue_ddir.z += SH_C3[1] * sh[14] * 0.5 * (x2 - y2);
 
-    dL_ddir[0].x += dvalue_ddir.x * dL_dvalue;
-    dL_ddir[0].y += dvalue_ddir.y * dL_dvalue;
-    dL_ddir[0].z += dvalue_ddir.z * dL_dvalue;
+    dL_ddir[0].x += dvalue_ddir.x * dL_dval;
+    dL_ddir[0].y += dvalue_ddir.y * dL_dval;
+    dL_ddir[0].z += dvalue_ddir.z * dL_dval;
 }
 
 __forceinline__ __device__ void evaluateSH4Backward(const float *sh,
                                                     const float3 dir,
-                                                    const float dL_dvalue,
+                                                    const float dL_dval,
                                                     float *dL_dsh,
                                                     float3 *dL_ddir) {
     float x = dir.x, y = dir.y, z = dir.z;
@@ -616,15 +616,15 @@ __forceinline__ __device__ void evaluateSH4Backward(const float *sh,
     float xy = x * y, yz = y * z, xz = x * z;
     float x3 = x * x2, y3 = y * y2, z3 = z * z2, xyz = x * y * z;
 
-    dL_dsh[16] = SH_C4[0] * 4 * xy * (x2 - y2);
-    dL_dsh[17] = SH_C4[1] * yz * (3 * x2 - y2);
-    dL_dsh[18] = SH_C4[2] * 2 * xy * (7 * z2 - 1);
-    dL_dsh[19] = SH_C4[3] * yz * (7 * z2 - 3);
-    dL_dsh[20] = SH_C4[4] * (z2 * (35 * z2 - 30) + 3);
-    dL_dsh[21] = SH_C4[3] * xz * (7 * z2 - 3);
-    dL_dsh[22] = SH_C4[2] * (x2 - y2) * (7 * z2 - 1);
-    dL_dsh[23] = SH_C4[1] * xz * (x2 - 3 * y2);
-    dL_dsh[24] = SH_C4[0] * (x2 * (x2 - 3 * y2) - y2 * (3 * x2 - y2));
+    dL_dsh[16] = dL_dval * SH_C4[0] * 4 * xy * (x2 - y2);
+    dL_dsh[17] = dL_dval * SH_C4[1] * yz * (3 * x2 - y2);
+    dL_dsh[18] = dL_dval * SH_C4[2] * 2 * xy * (7 * z2 - 1);
+    dL_dsh[19] = dL_dval * SH_C4[3] * yz * (7 * z2 - 3);
+    dL_dsh[20] = dL_dval * SH_C4[4] * (z2 * (35 * z2 - 30) + 3);
+    dL_dsh[21] = dL_dval * SH_C4[3] * xz * (7 * z2 - 3);
+    dL_dsh[22] = dL_dval * SH_C4[2] * (x2 - y2) * (7 * z2 - 1);
+    dL_dsh[23] = dL_dval * SH_C4[1] * xz * (x2 - 3 * y2);
+    dL_dsh[24] = dL_dval * SH_C4[0] * (x2 * (x2 - 3 * y2) - y2 * (3 * x2 - y2));
 
     float3 dvalue_ddir = {0, 0, 0};
     dvalue_ddir.x += SH_C4[0] * sh[16] * 4 * (3 * x2 * y - y3);
@@ -651,14 +651,14 @@ __forceinline__ __device__ void evaluateSH4Backward(const float *sh,
     dvalue_ddir.z += SH_C4[2] * sh[22] * (14 * x2 * z - 14 * y2 * z);
     dvalue_ddir.z += SH_C4[1] * sh[23] * (x3 - 3 * x * y2);
 
-    dL_ddir[0].x += dvalue_ddir.x * dL_dvalue;
-    dL_ddir[0].y += dvalue_ddir.y * dL_dvalue;
-    dL_ddir[0].z += dvalue_ddir.z * dL_dvalue;
+    dL_ddir[0].x += dvalue_ddir.x * dL_dval;
+    dL_ddir[0].y += dvalue_ddir.y * dL_dval;
+    dL_ddir[0].z += dvalue_ddir.z * dL_dval;
 }
 
 __forceinline__ __device__ void evaluateSH5Backward(const float *sh,
                                                     const float3 dir,
-                                                    const float dL_dvalue,
+                                                    const float dL_dval,
                                                     float *dL_dsh,
                                                     float3 *dL_ddir) {
     float x = dir.x, y = dir.y, z = dir.z;
@@ -666,21 +666,23 @@ __forceinline__ __device__ void evaluateSH5Backward(const float *sh,
     float xy = x * y, yz = y * z, xz = x * z;
     float x3 = x * x2, y3 = y * y2, z3 = z * z2, xyz = x * y * z;
 
-    dL_dsh[25] = SH_C5[0] * (10 * x3 * xy - 20 * x2 * y3 + 2 * y3 * y2);
-    dL_dsh[26] = SH_C5[1] * (8 * x3 * yz - 8 * xy * y2 * z);
-    dL_dsh[27] =
-        SH_C5[2] * (54 * x2 * y * z2 - 6 * x2 * y - 18 * y3 * z2 + 2 * y3);
-    dL_dsh[28] = SH_C5[3] * (12 * xy * z3 - 4 * x * yz);
-    dL_dsh[29] = SH_C5[4] * (42 * yz * z3 - 28 * y * z2 + 2 * y);
-    dL_dsh[30] = SH_C5[5] * (63 * z2 * z3 - 70 * z3 + 15 * z);
-    dL_dsh[31] = SH_C5[4] * (42 * x * z2 * z2 - 28 * x * z2 + 2 * x);
-    dL_dsh[32] =
-        SH_C5[3] * (6 * x2 * z3 - 2 * x2 * z - 6 * y2 * z3 + 2 * y2 * z);
-    dL_dsh[33] =
-        SH_C5[2] * (18 * x3 * z2 - 2 * x3 - 54 * x * y2 * z2 + 6 * x * y2);
-    dL_dsh[34] =
-        SH_C5[1] * (2 * x2 * x2 * z - 12 * x2 * y2 * z + 2 * y2 * y2 * z);
-    dL_dsh[35] = SH_C5[0] * (2 * x3 * x2 - 20 * x3 * y2 + 10 * xy * y3);
+    dL_dsh[25] =
+        dL_dval * SH_C5[0] * (10 * x3 * xy - 20 * x2 * y3 + 2 * y3 * y2);
+    dL_dsh[26] = dL_dval * SH_C5[1] * (8 * x3 * yz - 8 * xy * y2 * z);
+    dL_dsh[27] = dL_dval * SH_C5[2] *
+                 (54 * x2 * y * z2 - 6 * x2 * y - 18 * y3 * z2 + 2 * y3);
+    dL_dsh[28] = dL_dval * SH_C5[3] * (12 * xy * z3 - 4 * x * yz);
+    dL_dsh[29] = dL_dval * SH_C5[4] * (42 * yz * z3 - 28 * y * z2 + 2 * y);
+    dL_dsh[30] = dL_dval * SH_C5[5] * (63 * z2 * z3 - 70 * z3 + 15 * z);
+    dL_dsh[31] = dL_dval * SH_C5[4] * (42 * x * z2 * z2 - 28 * x * z2 + 2 * x);
+    dL_dsh[32] = dL_dval * SH_C5[3] *
+                 (6 * x2 * z3 - 2 * x2 * z - 6 * y2 * z3 + 2 * y2 * z);
+    dL_dsh[33] = dL_dval * SH_C5[2] *
+                 (18 * x3 * z2 - 2 * x3 - 54 * x * y2 * z2 + 6 * x * y2);
+    dL_dsh[34] = dL_dval * SH_C5[1] *
+                 (2 * x2 * x2 * z - 12 * x2 * y2 * z + 2 * y2 * y2 * z);
+    dL_dsh[35] =
+        dL_dval * SH_C5[0] * (2 * x3 * x2 - 20 * x3 * y2 + 10 * xy * y3);
 
     float3 dvalue_ddir = {0, 0, 0};
     dvalue_ddir.x += SH_C5[0] * sh[25] * 40 * xy * (x2 - y2);
@@ -719,14 +721,14 @@ __forceinline__ __device__ void evaluateSH5Backward(const float *sh,
     dvalue_ddir.z +=
         SH_C5[1] * sh[34] * (2 * x2 * x2 - 12 * x2 * y2 + 2 * y2 * y2);
 
-    dL_ddir[0].x += dvalue_ddir.x * dL_dvalue;
-    dL_ddir[0].y += dvalue_ddir.y * dL_dvalue;
-    dL_ddir[0].z += dvalue_ddir.z * dL_dvalue;
+    dL_ddir[0].x += dvalue_ddir.x * dL_dval;
+    dL_ddir[0].y += dvalue_ddir.y * dL_dval;
+    dL_ddir[0].z += dvalue_ddir.z * dL_dval;
 }
 
 __forceinline__ __device__ void evaluateSH6Backward(const float *sh,
                                                     const float3 dir,
-                                                    const float dL_dvalue,
+                                                    const float dL_dval,
                                                     float *dL_dsh,
                                                     float3 *dL_ddir) {
     float x = dir.x, y = dir.y, z = dir.z;
@@ -735,26 +737,32 @@ __forceinline__ __device__ void evaluateSH6Backward(const float *sh,
     float x3 = x * x2, y3 = y * y2, z3 = z * z2, xyz = x * y * z;
     float x4 = x2 * x2, y4 = y2 * y2, z4 = z2 * z2;
 
-    dL_dsh[36] = SH_C6[0] * (12 * x3 * x2 * y - 40 * x3 * y3 + 12 * xy * y4);
-    dL_dsh[37] = SH_C6[1] * (10 * x4 * yz - 20 * x2 * y2 * yz + 2 * y4 * yz);
-    dL_dsh[38] = SH_C6[2] * (88 * x2 * xy * z2 - 8 * x2 * xy -
-                             88 * xy * y2 * z2 + 8 * xy * y2);
-    dL_dsh[39] =
-        SH_C6[3] * 2 * yz * (33 * x2 * z2 - 9 * x2 - 11 * y2 * z2 + 3 * y2);
-    dL_dsh[40] = SH_C6[4] * 4 * xy * (33 * z4 - 18 * z2 + 1);
-    dL_dsh[41] = SH_C6[5] * 2 * yz * (33 * z4 - 30 * z2 + 5);
-    dL_dsh[42] = SH_C6[6] * (231 * z3 * z3 - 315 * z4 + 105 * z2 - 5);
-    dL_dsh[43] = SH_C6[5] * (66 * xz * z4 - 60 * xz * z2 + 10 * xz);
-    dL_dsh[44] = SH_C6[4] * (66 * x2 * z4 - 36 * x2 * z2 + 2 * x2 -
-                             66 * y2 * z4 + 36 * y2 * z2 - 2 * y2);
-    dL_dsh[45] = SH_C6[3] * (22 * x3 * z3 - 6 * x2 * xz - 66 * xy * yz * z2 +
-                             18 * xy * yz);
-    dL_dsh[46] = SH_C6[2] * (22 * x4 * z2 - 2 * x4 - 132 * x2 * y2 * z2 +
-                             12 * x2 * y2 + 22 * y4 * z2 - 2 * y4);
-    dL_dsh[47] =
-        SH_C6[1] * (2 * x4 * xz - 20 * x2 * xy * yz + 10 * xy * y2 * yz);
-    dL_dsh[48] =
-        SH_C6[0] * (2 * x4 * x2 - 30 * x4 * y2 + 30 * x2 * y4 - 2 * y3 * y3);
+    dL_dsh[36] =
+        dL_dval * SH_C6[0] * (12 * x3 * x2 * y - 40 * x3 * y3 + 12 * xy * y4);
+    dL_dsh[37] =
+        dL_dval * SH_C6[1] * (10 * x4 * yz - 20 * x2 * y2 * yz + 2 * y4 * yz);
+    dL_dsh[38] =
+        dL_dval * SH_C6[2] *
+        (88 * x2 * xy * z2 - 8 * x2 * xy - 88 * xy * y2 * z2 + 8 * xy * y2);
+    dL_dsh[39] = dL_dval * SH_C6[3] * 2 * yz *
+                 (33 * x2 * z2 - 9 * x2 - 11 * y2 * z2 + 3 * y2);
+    dL_dsh[40] = dL_dval * SH_C6[4] * 4 * xy * (33 * z4 - 18 * z2 + 1);
+    dL_dsh[41] = dL_dval * SH_C6[5] * 2 * yz * (33 * z4 - 30 * z2 + 5);
+    dL_dsh[42] = dL_dval * SH_C6[6] * (231 * z3 * z3 - 315 * z4 + 105 * z2 - 5);
+    dL_dsh[43] = dL_dval * SH_C6[5] * (66 * xz * z4 - 60 * xz * z2 + 10 * xz);
+    dL_dsh[44] = dL_dval * SH_C6[4] *
+                 (66 * x2 * z4 - 36 * x2 * z2 + 2 * x2 - 66 * y2 * z4 +
+                  36 * y2 * z2 - 2 * y2);
+    dL_dsh[45] =
+        dL_dval * SH_C6[3] *
+        (22 * x3 * z3 - 6 * x2 * xz - 66 * xy * yz * z2 + 18 * xy * yz);
+    dL_dsh[46] = dL_dval * SH_C6[2] *
+                 (22 * x4 * z2 - 2 * x4 - 132 * x2 * y2 * z2 + 12 * x2 * y2 +
+                  22 * y4 * z2 - 2 * y4);
+    dL_dsh[47] = dL_dval * SH_C6[1] *
+                 (2 * x4 * xz - 20 * x2 * xy * yz + 10 * xy * y2 * yz);
+    dL_dsh[48] = dL_dval * SH_C6[0] *
+                 (2 * x4 * x2 - 30 * x4 * y2 + 30 * x2 * y4 - 2 * y3 * y3);
 
     float3 dvalue_ddir = {0, 0, 0};
     dvalue_ddir.x += SH_C6[0] * sh[36] * 12 * y * (5 * x4 - 10 * x2 * y2 + y4);
@@ -802,14 +810,14 @@ __forceinline__ __device__ void evaluateSH6Backward(const float *sh,
     dvalue_ddir.z += SH_C6[2] * sh[46] * 44 * z * (x4 - 6 * x2 * y2 + y4);
     dvalue_ddir.z += SH_C6[1] * sh[47] * 2 * x * (x4 - 10 * x2 * y2 + 5 * y4);
 
-    dL_ddir[0].x += dvalue_ddir.x * dL_dvalue;
-    dL_ddir[0].y += dvalue_ddir.y * dL_dvalue;
-    dL_ddir[0].z += dvalue_ddir.z * dL_dvalue;
+    dL_ddir[0].x += dvalue_ddir.x * dL_dval;
+    dL_ddir[0].y += dvalue_ddir.y * dL_dval;
+    dL_ddir[0].z += dvalue_ddir.z * dL_dval;
 }
 
 __forceinline__ __device__ void evaluateSH7Backward(const float *sh,
                                                     const float3 dir,
-                                                    const float dL_dvalue,
+                                                    const float dL_dval,
                                                     float *dL_dsh,
                                                     float3 *dL_ddir) {
     float x = dir.x, y = dir.y, z = dir.z;
@@ -820,36 +828,40 @@ __forceinline__ __device__ void evaluateSH7Backward(const float *sh,
     float x5 = x3 * x2, y5 = y3 * y2, z5 = z3 * z2;
     float x6 = x3 * x3, y6 = y3 * y3, z6 = z3 * z3;
 
-    dL_dsh[49] = SH_C7[0] * 2 * y *
+    dL_dsh[49] = dL_dval * SH_C7[0] * 2 * y *
                  (7 * x3 * x3 - 35 * x4 * y2 + 21 * x2 * y4 - y3 * y3);
-    dL_dsh[50] = SH_C7[1] * 4 * xyz * (3 * x4 - 10 * x2 * y2 + 3 * y4);
-    dL_dsh[51] = SH_C7[2] * 2 * y *
+    dL_dsh[50] =
+        dL_dval * SH_C7[1] * 4 * xyz * (3 * x4 - 10 * x2 * y2 + 3 * y4);
+    dL_dsh[51] = dL_dval * SH_C7[2] * 2 * y *
                  (65 * x4 * z2 - 5 * x4 - 130 * x2 * y2 * z2 + 10 * x2 * y2 +
                   13 * y4 * z2 - y4);
-    dL_dsh[52] =
-        SH_C7[3] * 8 * xyz * (13 * x2 * z2 - 3 * x2 - 13 * y2 * z2 + 3 * y2);
-    dL_dsh[53] = SH_C7[4] * 2 * y *
+    dL_dsh[52] = dL_dval * SH_C7[3] * 8 * xyz *
+                 (13 * x2 * z2 - 3 * x2 - 13 * y2 * z2 + 3 * y2);
+    dL_dsh[53] = dL_dval * SH_C7[4] * 2 * y *
                  (429 * x2 * z4 - 198 * x2 * z2 + 9 * x2 - 143 * y2 * z4 +
                   66 * y2 * z2 - 3 * y2);
-    dL_dsh[54] = SH_C7[5] * 4 * xyz * (143 * z4 - 110 * z2 + 15);
-    dL_dsh[55] = SH_C7[6] * 2 * y * (429 * z3 * z3 - 495 * z4 + 135 * z2 - 5);
-    dL_dsh[56] = SH_C7[7] * z * (429 * z3 * z3 - 693 * z4 + 315 * z2 - 35);
-    dL_dsh[57] = SH_C7[6] * 2 * x * (429 * z3 * z3 - 495 * z4 + 135 * z2 - 5);
-    dL_dsh[58] = SH_C7[5] * 2 * z *
+    dL_dsh[54] = dL_dval * SH_C7[5] * 4 * xyz * (143 * z4 - 110 * z2 + 15);
+    dL_dsh[55] =
+        dL_dval * SH_C7[6] * 2 * y * (429 * z3 * z3 - 495 * z4 + 135 * z2 - 5);
+    dL_dsh[56] =
+        dL_dval * SH_C7[7] * z * (429 * z3 * z3 - 693 * z4 + 315 * z2 - 35);
+    dL_dsh[57] =
+        dL_dval * SH_C7[6] * 2 * x * (429 * z3 * z3 - 495 * z4 + 135 * z2 - 5);
+    dL_dsh[58] = dL_dval * SH_C7[5] * 2 * z *
                  (143 * x2 * z4 - 110 * x2 * z2 + 15 * x2 - 143 * y2 * z4 +
                   110 * y2 * z2 - 15 * y2);
-    dL_dsh[59] = SH_C7[4] * 2 * x *
+    dL_dsh[59] = dL_dval * SH_C7[4] * 2 * x *
                  (143 * x2 * z4 - 66 * x2 * z2 + 3 * x2 - 429 * y2 * z4 +
                   198 * y2 * z2 - 9 * y2);
-    dL_dsh[60] = SH_C7[3] * 2 * z *
+    dL_dsh[60] = dL_dval * SH_C7[3] * 2 * z *
                  (13 * x4 * z2 - 3 * x4 - 78 * x2 * y2 * z2 + 18 * x2 * y2 +
                   13 * y4 * z2 - 3 * y4);
-    dL_dsh[61] = SH_C7[2] * 2 * x *
+    dL_dsh[61] = dL_dval * SH_C7[2] * 2 * x *
                  (13 * x4 * z2 - x4 - 130 * x2 * y2 * z2 + 10 * x2 * y2 +
                   65 * y4 * z2 - 5 * y4);
-    dL_dsh[62] =
-        SH_C7[1] * 2 * z * (x3 * x3 - 15 * x4 * y2 + 15 * x2 * y4 - y3 * y3);
-    dL_dsh[63] = SH_C7[0] * 2 * x *
+    dL_dsh[62] = dL_dval * SH_C7[1] * 2 * z *
+                 (x3 * x3 - 15 * x4 * y2 + 15 * x2 * y4 - y3 * y3);
+    dL_dsh[63] = dL_dval * SH_C7[0] * 2 * x *
                  (x3 * x3 - 21 * x4 * y2 + 35 * x2 * y4 - 7 * y3 * y3);
 
     float3 dvalue_ddir = {0, 0, 0};
@@ -924,14 +936,14 @@ __forceinline__ __device__ void evaluateSH7Backward(const float *sh,
     dvalue_ddir.z +=
         SH_C7[1] * sh[62] * (2 * x6 - 30 * x4 * y2 + 30 * x2 * y4 - 2 * y6);
 
-    dL_ddir[0].x += dvalue_ddir.x * dL_dvalue;
-    dL_ddir[0].y += dvalue_ddir.y * dL_dvalue;
-    dL_ddir[0].z += dvalue_ddir.z * dL_dvalue;
+    dL_ddir[0].x += dvalue_ddir.x * dL_dval;
+    dL_ddir[0].y += dvalue_ddir.y * dL_dval;
+    dL_ddir[0].z += dvalue_ddir.z * dL_dval;
 }
 
 __forceinline__ __device__ void evaluateSH8Backward(const float *sh,
                                                     const float3 dir,
-                                                    const float dL_dvalue,
+                                                    const float dL_dval,
                                                     float *dL_dsh,
                                                     float3 *dL_ddir) {
     float x = dir.x, y = dir.y, z = dir.z;
@@ -941,46 +953,51 @@ __forceinline__ __device__ void evaluateSH8Backward(const float *sh,
     float x4 = x2 * x2, y4 = y2 * y2, z4 = z2 * z2;
     float x6 = x3 * x3, y6 = y3 * y3, z6 = z3 * z3;
 
-    dL_dsh[64] = SH_C8[0] * 16 * xy * (x6 - 7 * x4 * y2 + 7 * x2 * y4 - y6);
-    dL_dsh[65] =
-        SH_C8[1] * 2 * yz * (7 * x6 - 35 * x4 * y2 + 21 * x2 * y4 - y6);
-    dL_dsh[66] = SH_C8[2] * 4 * xy *
+    dL_dsh[64] =
+        dL_dval * SH_C8[0] * 16 * xy * (x6 - 7 * x4 * y2 + 7 * x2 * y4 - y6);
+    dL_dsh[65] = dL_dval * SH_C8[1] * 2 * yz *
+                 (7 * x6 - 35 * x4 * y2 + 21 * x2 * y4 - y6);
+    dL_dsh[66] = dL_dval * SH_C8[2] * 4 * xy *
                  (45 * x4 * z2 - 3 * x4 - 150 * x2 * y2 * z2 + 10 * x2 * y2 +
                   45 * y4 * z2 - 3 * y4);
-    dL_dsh[67] = SH_C8[3] * 2 * yz *
+    dL_dsh[67] = dL_dval * SH_C8[3] * 2 * yz *
                  (25 * x4 * z2 - 5 * x4 - 50 * x2 * y2 * z2 + 10 * x2 * y2 +
                   5 * y4 * z2 - y4);
     dL_dsh[68] =
-        SH_C8[4] * 8 * xy *
+        dL_dval * SH_C8[4] * 8 * xy *
         (65 * x2 * z4 - 26 * x2 * z2 + x2 - 65 * y2 * z4 + 26 * y2 * z2 - y2);
-    dL_dsh[69] = SH_C8[5] * 2 * yz *
+    dL_dsh[69] = dL_dval * SH_C8[5] * 2 * yz *
                  (117 * x2 * z4 - 78 * x2 * z2 + 9 * x2 - 39 * y2 * z4 +
                   26 * y2 * z2 - 3 * y2);
-    dL_dsh[70] = SH_C8[6] * 4 * xy * (143 * z6 - 143 * z4 + 33 * z2 - 1);
-    dL_dsh[71] = SH_C8[7] * 2 * yz * (715 * z6 - 1001 * z4 + 385 * z2 - 35);
-    dL_dsh[72] =
-        SH_C8[8] * (6435 * z4 * z4 - 12012 * z6 + 6930 * z4 - 1260 * z2 + 35);
-    dL_dsh[73] = SH_C8[7] * 2 * xz * (715 * z6 - 1001 * z4 + 385 * z2 - 35);
-    dL_dsh[74] =
-        SH_C8[6] * (286 * x2 * z6 - 286 * x2 * z4 + 66 * x2 * z2 - 2 * x2 -
-                    286 * y2 * z6 + 286 * y2 * z4 - 66 * y2 * z2 + 2 * y2);
-    dL_dsh[75] = SH_C8[5] * 2 * xz *
+    dL_dsh[70] =
+        dL_dval * SH_C8[6] * 4 * xy * (143 * z6 - 143 * z4 + 33 * z2 - 1);
+    dL_dsh[71] =
+        dL_dval * SH_C8[7] * 2 * yz * (715 * z6 - 1001 * z4 + 385 * z2 - 35);
+    dL_dsh[72] = dL_dval * SH_C8[8] *
+                 (6435 * z4 * z4 - 12012 * z6 + 6930 * z4 - 1260 * z2 + 35);
+    dL_dsh[73] =
+        dL_dval * SH_C8[7] * 2 * xz * (715 * z6 - 1001 * z4 + 385 * z2 - 35);
+    dL_dsh[74] = dL_dval * SH_C8[6] *
+                 (286 * x2 * z6 - 286 * x2 * z4 + 66 * x2 * z2 - 2 * x2 -
+                  286 * y2 * z6 + 286 * y2 * z4 - 66 * y2 * z2 + 2 * y2);
+    dL_dsh[75] = dL_dval * SH_C8[5] * 2 * xz *
                  (39 * x2 * z4 - 26 * x2 * z2 + 3 * x2 - 117 * y2 * z4 +
                   78 * y2 * z2 - 9 * y2);
-    dL_dsh[76] =
-        SH_C8[4] * (130 * x4 * z4 - 52 * x4 * z2 + 2 * x4 - 780 * x2 * y2 * z4 +
-                    312 * x2 * y2 * z2 - 12 * x2 * y2 + 130 * y4 * z4 -
-                    52 * y4 * z2 + 2 * y4);
-    dL_dsh[77] = SH_C8[3] * 2 * xz *
+    dL_dsh[76] = dL_dval * SH_C8[4] *
+                 (130 * x4 * z4 - 52 * x4 * z2 + 2 * x4 - 780 * x2 * y2 * z4 +
+                  312 * x2 * y2 * z2 - 12 * x2 * y2 + 130 * y4 * z4 -
+                  52 * y4 * z2 + 2 * y4);
+    dL_dsh[77] = dL_dval * SH_C8[3] * 2 * xz *
                  (5 * x4 * z2 - x4 - 50 * x2 * y2 * z2 + 10 * x2 * y2 +
                   25 * y4 * z2 - 5 * y4);
-    dL_dsh[78] =
-        SH_C8[2] * (30 * x6 * z2 - 2 * x6 - 450 * x4 * y2 * z2 + 30 * x4 * y2 +
-                    450 * x2 * y4 * z2 - 30 * x2 * y4 - 30 * y6 * z2 + 2 * y6);
-    dL_dsh[79] =
-        SH_C8[1] * 2 * xz * (x6 - 21 * x4 * y2 + 35 * x2 * y4 - 7 * y6);
-    dL_dsh[80] = SH_C8[0] * (2 * x4 * x4 - 56 * x6 * y2 + 140 * x4 * y4 -
-                             56 * x2 * y6 + 2 * y4 * y4);
+    dL_dsh[78] = dL_dval * SH_C8[2] *
+                 (30 * x6 * z2 - 2 * x6 - 450 * x4 * y2 * z2 + 30 * x4 * y2 +
+                  450 * x2 * y4 * z2 - 30 * x2 * y4 - 30 * y6 * z2 + 2 * y6);
+    dL_dsh[79] = dL_dval * SH_C8[1] * 2 * xz *
+                 (x6 - 21 * x4 * y2 + 35 * x2 * y4 - 7 * y6);
+    dL_dsh[80] = dL_dval * SH_C8[0] *
+                 (2 * x4 * x4 - 56 * x6 * y2 + 140 * x4 * y4 - 56 * x2 * y6 +
+                  2 * y4 * y4);
 
     float3 dvalue_ddir = {0, 0, 0};
 
@@ -1093,14 +1110,14 @@ __forceinline__ __device__ void evaluateSH8Backward(const float *sh,
     dvalue_ddir.z +=
         SH_C8[1] * sh[79] * 2 * x * (x6 - 21 * x4 * y2 + 35 * x2 * y4 - 7 * y6);
 
-    dL_ddir[0].x += dvalue_ddir.x * dL_dvalue;
-    dL_ddir[0].y += dvalue_ddir.y * dL_dvalue;
-    dL_ddir[0].z += dvalue_ddir.z * dL_dvalue;
+    dL_ddir[0].x += dvalue_ddir.x * dL_dval;
+    dL_ddir[0].y += dvalue_ddir.y * dL_dval;
+    dL_ddir[0].z += dvalue_ddir.z * dL_dval;
 }
 
 __forceinline__ __device__ void evaluateSH9Backward(const float *sh,
                                                     const float3 dir,
-                                                    const float dL_dvalue,
+                                                    const float dL_dval,
                                                     float *dL_dsh,
                                                     float3 *dL_ddir) {
     float x = dir.x, y = dir.y, z = dir.z;
@@ -1111,55 +1128,57 @@ __forceinline__ __device__ void evaluateSH9Backward(const float *sh,
     float x6 = x3 * x3, y6 = y3 * y3, z6 = z3 * z3;
     float x8 = x4 * x4, y8 = y4 * y4, z8 = z4 * z4;
 
-    dL_dsh[81] = SH_C9[0] * 2 * y *
+    dL_dsh[81] = dL_dval * SH_C9[0] * 2 * y *
                  (9 * x8 - 84 * x6 * y2 + 126 * x4 * y4 - 36 * x2 * y6 + y8);
-    dL_dsh[82] = SH_C9[1] * 16 * xyz * (x6 - 7 * x4 * y2 + 7 * x2 * y4 - y6);
-    dL_dsh[83] = SH_C9[2] * 2 * y *
+    dL_dsh[82] =
+        dL_dval * SH_C9[1] * 16 * xyz * (x6 - 7 * x4 * y2 + 7 * x2 * y4 - y6);
+    dL_dsh[83] = dL_dval * SH_C9[2] * 2 * y *
                  (119 * x6 * z2 - 7 * x6 - 595 * x4 * y2 * z2 + 35 * x4 * y2 +
                   357 * x2 * y4 * z2 - 21 * x2 * y4 - 17 * y6 * z2 + y6);
-    dL_dsh[84] = SH_C9[3] * 4 * xyz *
+    dL_dsh[84] = dL_dval * SH_C9[3] * 4 * xyz *
                  (51 * x4 * z2 - 9 * x4 - 170 * x2 * y2 * z2 + 30 * x2 * y2 +
                   51 * y4 * z2 - 9 * y4);
     dL_dsh[85] =
-        SH_C9[4] * 2 * y *
+        dL_dval * SH_C9[4] * 2 * y *
         (425 * x4 * z4 - 150 * x4 * z2 + 5 * x4 - 850 * x2 * y2 * z4 +
          300 * x2 * y2 * z2 - 10 * x2 * y2 + 85 * y4 * z4 - 30 * y4 * z2 + y4);
     dL_dsh[86] =
-        SH_C9[5] * 8 * xyz *
+        dL_dval * SH_C9[5] * 8 * xyz *
         (17 * x2 * z4 - 10 * x2 * z2 + x2 - 17 * y2 * z4 + 10 * y2 * z2 - y2);
-    dL_dsh[87] = SH_C9[6] * 2 * y *
+    dL_dsh[87] = dL_dval * SH_C9[6] * 2 * y *
                  (663 * x2 * z6 - 585 * x2 * z4 + 117 * x2 * z2 - 3 * x2 -
                   221 * y2 * z6 + 195 * y2 * z4 - 39 * y2 * z2 + y2);
-    dL_dsh[88] = SH_C9[7] * 4 * xyz * (221 * z6 - 273 * z4 + 91 * z2 - 7);
-    dL_dsh[89] =
-        SH_C9[8] * 2 * y * (2431 * z8 - 4004 * z6 + 2002 * z4 - 308 * z2 + 7);
-    dL_dsh[90] =
-        SH_C9[9] * z * (12155 * z8 - 25740 * z6 + 18018 * z4 - 4620 * z2 + 315);
-    dL_dsh[91] =
-        SH_C9[8] * 2 * x * (2431 * z8 - 4004 * z6 + 2002 * z4 - 308 * z2 + 7);
-    dL_dsh[92] = SH_C9[7] * 2 * z *
+    dL_dsh[88] =
+        dL_dval * SH_C9[7] * 4 * xyz * (221 * z6 - 273 * z4 + 91 * z2 - 7);
+    dL_dsh[89] = dL_dval * SH_C9[8] * 2 * y *
+                 (2431 * z8 - 4004 * z6 + 2002 * z4 - 308 * z2 + 7);
+    dL_dsh[90] = dL_dval * SH_C9[9] * z *
+                 (12155 * z8 - 25740 * z6 + 18018 * z4 - 4620 * z2 + 315);
+    dL_dsh[91] = dL_dval * SH_C9[8] * 2 * x *
+                 (2431 * z8 - 4004 * z6 + 2002 * z4 - 308 * z2 + 7);
+    dL_dsh[92] = dL_dval * SH_C9[7] * 2 * z *
                  (221 * x2 * z6 - 273 * x2 * z4 + 91 * x2 * z2 - 7 * x2 -
                   221 * y2 * z6 + 273 * y2 * z4 - 91 * y2 * z2 + 7 * y2);
-    dL_dsh[93] = SH_C9[6] * 2 * x *
+    dL_dsh[93] = dL_dval * SH_C9[6] * 2 * x *
                  (221 * x2 * z6 - 195 * x2 * z4 + 39 * x2 * z2 - x2 -
                   663 * y2 * z6 + 585 * y2 * z4 - 117 * y2 * z2 + 3 * y2);
     dL_dsh[94] =
-        SH_C9[5] * 2 * z *
+        dL_dval * SH_C9[5] * 2 * z *
         (17 * x4 * z4 - 10 * x4 * z2 + x4 - 102 * x2 * y2 * z4 +
          60 * x2 * y2 * z2 - 6 * x2 * y2 + 17 * y4 * z4 - 10 * y4 * z2 + y4);
-    dL_dsh[95] = SH_C9[4] * 2 * x *
+    dL_dsh[95] = dL_dval * SH_C9[4] * 2 * x *
                  (85 * x4 * z4 - 30 * x4 * z2 + x4 - 850 * x2 * y2 * z4 +
                   300 * x2 * y2 * z2 - 10 * x2 * y2 + 425 * y4 * z4 -
                   150 * y4 * z2 + 5 * y4);
-    dL_dsh[96] = SH_C9[3] * 2 * z *
+    dL_dsh[96] = dL_dval * SH_C9[3] * 2 * z *
                  (17 * x6 * z2 - 3 * x6 - 255 * x4 * y2 * z2 + 45 * x4 * y2 +
                   255 * x2 * y4 * z2 - 45 * x2 * y4 - 17 * y6 * z2 + 3 * y6);
-    dL_dsh[97] = SH_C9[2] * 2 * x *
+    dL_dsh[97] = dL_dval * SH_C9[2] * 2 * x *
                  (17 * x6 * z2 - x6 - 357 * x4 * y2 * z2 + 21 * x4 * y2 +
                   595 * x2 * y4 * z2 - 35 * x2 * y4 - 119 * y6 * z2 + 7 * y6);
-    dL_dsh[98] = SH_C9[1] * 2 * z *
+    dL_dsh[98] = dL_dval * SH_C9[1] * 2 * z *
                  (x8 - 28 * x6 * y2 + 70 * x4 * y4 - 28 * x2 * y6 + y8);
-    dL_dsh[99] = SH_C9[0] * 2 * x *
+    dL_dsh[99] = dL_dval * SH_C9[0] * 2 * x *
                  (x8 - 36 * x6 * y2 + 126 * x4 * y4 - 84 * x2 * y6 + 9 * y8);
 
     float3 dvalue_ddir = {0, 0, 0};
@@ -1307,14 +1326,14 @@ __forceinline__ __device__ void evaluateSH9Backward(const float *sh,
         SH_C9[1] * sh[98] *
         (2 * x8 - 56 * x6 * y2 + 140 * x4 * y4 - 56 * x2 * y6 + 2 * y8);
 
-    dL_ddir[0].x += dvalue_ddir.x * dL_dvalue;
-    dL_ddir[0].y += dvalue_ddir.y * dL_dvalue;
-    dL_ddir[0].z += dvalue_ddir.z * dL_dvalue;
+    dL_ddir[0].x += dvalue_ddir.x * dL_dval;
+    dL_ddir[0].y += dvalue_ddir.y * dL_dval;
+    dL_ddir[0].z += dvalue_ddir.z * dL_dval;
 }
 
 __forceinline__ __device__ void evaluateSH10Backward(const float *sh,
                                                      const float3 dir,
-                                                     const float dL_dvalue,
+                                                     const float dL_dval,
                                                      float *dL_dsh,
                                                      float3 *dL_ddir) {
     float x = dir.x, y = dir.y, z = dir.z;
@@ -1327,72 +1346,74 @@ __forceinline__ __device__ void evaluateSH10Backward(const float *sh,
     float x10 = x6 * x4, y10 = y6 * y4, z10 = z6 * z4;
 
     dL_dsh[100] =
-        SH_C10[0] * xy *
+        dL_dval * SH_C10[0] * xy *
         (20 * x8 - 240 * x6 * y2 + 504 * x4 * y4 - 240 * x2 * y6 + 20 * y8);
-    dL_dsh[101] = SH_C10[1] * 2 * yz *
+    dL_dsh[101] = dL_dval * SH_C10[1] * 2 * yz *
                   (9 * x8 - 84 * x6 * y2 + 126 * x4 * y4 - 36 * x2 * y6 + y8);
-    dL_dsh[102] = SH_C10[2] * 16 * xy *
+    dL_dsh[102] = dL_dval * SH_C10[2] * 16 * xy *
                   (19 * x6 * z2 - x6 - 133 * x4 * y2 * z2 + 7 * x4 * y2 +
                    133 * x2 * y4 * z2 - 7 * x2 * y4 - 19 * y6 * z2 + y6);
     dL_dsh[103] =
-        SH_C10[3] * 2 * yz *
+        dL_dval * SH_C10[3] * 2 * yz *
         (133 * x6 * z2 - 21 * x6 - 665 * x4 * y2 * z2 + 105 * x4 * y2 +
          399 * x2 * y4 * z2 - 63 * x2 * y4 - 19 * y6 * z2 + 3 * y6);
-    dL_dsh[104] = SH_C10[4] * 4 * xy *
+    dL_dsh[104] = dL_dval * SH_C10[4] * 4 * xy *
                   (969 * x4 * z4 - 306 * x4 * z2 + 9 * x4 -
                    3230 * x2 * y2 * z4 + 1020 * x2 * y2 * z2 - 30 * x2 * y2 +
                    969 * y4 * z4 - 306 * y4 * z2 + 9 * y4);
-    dL_dsh[105] = SH_C10[5] * 2 * yz *
+    dL_dsh[105] = dL_dval * SH_C10[5] * 2 * yz *
                   (1615 * x4 * z4 - 850 * x4 * z2 + 75 * x4 -
                    3230 * x2 * y2 * z4 + 1700 * x2 * y2 * z2 - 150 * x2 * y2 +
                    323 * y4 * z4 - 170 * y4 * z2 + 15 * y4);
-    dL_dsh[106] = SH_C10[6] * 8 * xy *
+    dL_dsh[106] = dL_dval * SH_C10[6] * 8 * xy *
                   (323 * x2 * z6 - 255 * x2 * z4 + 45 * x2 * z2 - x2 -
                    323 * y2 * z6 + 255 * y2 * z4 - 45 * y2 * z2 + y2);
-    dL_dsh[107] = SH_C10[7] * 2 * yz *
+    dL_dsh[107] = dL_dval * SH_C10[7] * 2 * yz *
                   (969 * x2 * z6 - 1071 * x2 * z4 + 315 * x2 * z2 - 21 * x2 -
                    323 * y2 * z6 + 357 * y2 * z4 - 105 * y2 * z2 + 7 * y2);
-    dL_dsh[108] =
-        SH_C10[8] * 4 * xy * (4199 * z8 - 6188 * z6 + 2730 * z4 - 364 * z2 + 7);
-    dL_dsh[109] = SH_C10[9] * 2 * yz *
+    dL_dsh[108] = dL_dval * SH_C10[8] * 4 * xy *
+                  (4199 * z8 - 6188 * z6 + 2730 * z4 - 364 * z2 + 7);
+    dL_dsh[109] = dL_dval * SH_C10[9] * 2 * yz *
                   (4199 * z8 - 7956 * z6 + 4914 * z4 - 1092 * z2 + 63);
-    dL_dsh[110] = SH_C10[10] * (46189 * z10 - 109395 * z8 + 90090 * z6 -
-                                30030 * z4 + 3465 * z2 - 63);
-    dL_dsh[111] = SH_C10[9] * 2 * xz *
+    dL_dsh[110] =
+        dL_dval * SH_C10[10] *
+        (46189 * z10 - 109395 * z8 + 90090 * z6 - 30030 * z4 + 3465 * z2 - 63);
+    dL_dsh[111] = dL_dval * SH_C10[9] * 2 * xz *
                   (4199 * z8 - 7956 * z6 + 4914 * z4 - 1092 * z2 + 63);
-    dL_dsh[112] = SH_C10[8] *
+    dL_dsh[112] = dL_dval * SH_C10[8] *
                   (8398 * x2 * z8 - 12376 * x2 * z6 + 5460 * x2 * z4 -
                    728 * x2 * z2 + 14 * x2 - 8398 * y2 * z8 + 12376 * y2 * z6 -
                    5460 * y2 * z4 + 728 * y2 * z2 - 14 * y2);
-    dL_dsh[113] = SH_C10[7] * 2 * xz *
+    dL_dsh[113] = dL_dval * SH_C10[7] * 2 * xz *
                   (323 * x2 * z6 - 357 * x2 * z4 + 105 * x2 * z2 - 7 * x2 -
                    969 * y2 * z6 + 1071 * y2 * z4 - 315 * y2 * z2 + 21 * y2);
     dL_dsh[114] =
-        SH_C10[6] *
+        dL_dval * SH_C10[6] *
         (646 * x4 * z6 - 510 * x4 * z4 + 90 * x4 * z2 - 2 * x4 -
          3876 * x2 * y2 * z6 + 3060 * x2 * y2 * z4 - 540 * x2 * y2 * z2 +
          12 * x2 * y2 + 646 * y4 * z6 - 510 * y4 * z4 + 90 * y4 * z2 - 2 * y4);
-    dL_dsh[115] = SH_C10[5] * 2 * xz *
+    dL_dsh[115] = dL_dval * SH_C10[5] * 2 * xz *
                   (323 * x4 * z4 - 170 * x4 * z2 + 15 * x4 -
                    3230 * x2 * y2 * z4 + 1700 * x2 * y2 * z2 - 150 * x2 * y2 +
                    1615 * y4 * z4 - 850 * y4 * z2 + 75 * y4);
-    dL_dsh[116] =
-        SH_C10[4] * (646 * x6 * z4 - 204 * x6 * z2 + 6 * x6 -
-                     9690 * x4 * y2 * z4 + 3060 * x4 * y2 * z2 - 90 * x4 * y2 +
-                     9690 * x2 * y4 * z4 - 3060 * x2 * y4 * z2 + 90 * x2 * y4 -
-                     646 * y6 * z4 + 204 * y6 * z2 - 6 * y6);
+    dL_dsh[116] = dL_dval * SH_C10[4] *
+                  (646 * x6 * z4 - 204 * x6 * z2 + 6 * x6 -
+                   9690 * x4 * y2 * z4 + 3060 * x4 * y2 * z2 - 90 * x4 * y2 +
+                   9690 * x2 * y4 * z4 - 3060 * x2 * y4 * z2 + 90 * x2 * y4 -
+                   646 * y6 * z4 + 204 * y6 * z2 - 6 * y6);
     dL_dsh[117] =
-        SH_C10[3] * 2 * xz *
+        dL_dval * SH_C10[3] * 2 * xz *
         (19 * x6 * z2 - 3 * x6 - 399 * x4 * y2 * z2 + 63 * x4 * y2 +
          665 * x2 * y4 * z2 - 105 * x2 * y4 - 133 * y6 * z2 + 21 * y6);
-    dL_dsh[118] = SH_C10[2] *
+    dL_dsh[118] = dL_dval * SH_C10[2] *
                   (38 * x8 * z2 - 2 * x8 - 1064 * x6 * y2 * z2 + 56 * x6 * y2 +
                    2660 * x4 * y4 * z2 - 140 * x4 * y4 - 1064 * x2 * y6 * z2 +
                    56 * x2 * y6 + 38 * y8 * z2 - 2 * y8);
-    dL_dsh[119] = SH_C10[1] * 2 * xz *
+    dL_dsh[119] = dL_dval * SH_C10[1] * 2 * xz *
                   (x8 - 36 * x6 * y2 + 126 * x4 * y4 - 84 * x2 * y6 + 9 * y8);
-    dL_dsh[120] = SH_C10[0] * (2 * x10 - 90 * x8 * y2 + 420 * x6 * y4 -
-                               420 * x4 * y6 + 90 * x2 * y8 - 2 * y10);
+    dL_dsh[120] = dL_dval * SH_C10[0] *
+                  (2 * x10 - 90 * x8 * y2 + 420 * x6 * y4 - 420 * x4 * y6 +
+                   90 * x2 * y8 - 2 * y10);
 
     float3 dvalue_ddir = {0, 0, 0};
 
@@ -1571,9 +1592,9 @@ __forceinline__ __device__ void evaluateSH10Backward(const float *sh,
         SH_C10[1] * sh[119] * 2 * x *
         (x8 - 36 * x6 * y2 + 126 * x4 * y4 - 84 * x2 * y6 + 9 * y8);
 
-    dL_ddir[0].x += dvalue_ddir.x * dL_dvalue;
-    dL_ddir[0].y += dvalue_ddir.y * dL_dvalue;
-    dL_ddir[0].z += dvalue_ddir.z * dL_dvalue;
+    dL_ddir[0].x += dvalue_ddir.x * dL_dval;
+    dL_ddir[0].y += dvalue_ddir.y * dL_dval;
+    dL_ddir[0].z += dvalue_ddir.z * dL_dval;
 }
 
 __global__ void computeSHForwardCUDAKernel(const int P,
@@ -1621,7 +1642,7 @@ __global__ void computeSHBackwardCUDAKernel(const int P,
                                             const float *shs,
                                             const float3 *dirs,
                                             const bool *visible,
-                                            const float *dL_dvalue,
+                                            const float *dL_dval,
                                             float *dL_dshs,
                                             float3 *dL_ddirs) {
     auto idx = cg::this_grid().thread_rank();
@@ -1630,45 +1651,45 @@ __global__ void computeSHBackwardCUDAKernel(const int P,
 
     // SH: [N, C, D]
     // dir: [N, 3]
-    // dL_dvalue: [N, C]
+    // dL_dval: [N, C]
     for (int i = 0; i < C; i++) {
-        const float *dL_dvalue_tmp = dL_dvalue + idx * C;
+        const float *dL_dval_tmp = dL_dval + idx * C;
         const float *sh_tmp = shs + idx * D * C + i * D;
         float *dL_dsh_tmp = dL_dshs + idx * D * C + i * D;
         float3 *dL_ddir_tmp = dL_ddirs + idx;
 
         evaluateSH0Backward(
-            sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+            sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
         if (D > 1)
             evaluateSH1Backward(
-                sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+                sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
         if (D > 4)
             evaluateSH2Backward(
-                sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+                sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
         if (D > 9)
             evaluateSH3Backward(
-                sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+                sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
         if (D > 16)
             evaluateSH4Backward(
-                sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+                sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
         if (D > 25)
             evaluateSH5Backward(
-                sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+                sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
         if (D > 36)
             evaluateSH6Backward(
-                sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+                sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
         if (D > 49)
             evaluateSH7Backward(
-                sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+                sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
         if (D > 64)
             evaluateSH8Backward(
-                sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+                sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
         if (D > 81)
             evaluateSH9Backward(
-                sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+                sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
         if (D > 100)
             evaluateSH10Backward(
-                sh_tmp, dirs[idx], dL_dvalue_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
+                sh_tmp, dirs[idx], dL_dval_tmp[i], dL_dsh_tmp, dL_ddir_tmp);
     }
 }
 
@@ -1693,7 +1714,7 @@ torch::Tensor computeSHForward(const torch::Tensor &shs,
             shs.contiguous().data_ptr<float>(),
             (const float3 *)view_dirs.contiguous().data_ptr<float>(),
             visible.contiguous().data_ptr<bool>(),
-            value.data_ptr<float>());
+            value.contiguous().data_ptr<float>());
     }
 
     return value;
@@ -1703,11 +1724,11 @@ std::tuple<torch::Tensor, torch::Tensor>
 computeSHBackward(const torch::Tensor &shs,
                   const torch::Tensor &view_dirs,
                   const torch::Tensor &visible,
-                  const torch::Tensor &dL_dvalue) {
+                  const torch::Tensor &dL_dval) {
     CHECK_INPUT(shs);
     CHECK_INPUT(view_dirs);
     CHECK_INPUT(visible);
-    CHECK_INPUT(dL_dvalue);
+    CHECK_INPUT(dL_dval);
 
     const int P = shs.size(0);
     const int C = shs.size(1);
@@ -1724,9 +1745,9 @@ computeSHBackward(const torch::Tensor &shs,
             shs.contiguous().data_ptr<float>(),
             (const float3 *)view_dirs.contiguous().data_ptr<float>(),
             visible.contiguous().data_ptr<bool>(),
-            dL_dvalue.contiguous().data_ptr<float>(),
-            dL_dshs.data_ptr<float>(),
-            (float3 *)dL_dvdirs.data_ptr<float>());
+            dL_dval.contiguous().data_ptr<float>(),
+            dL_dshs.contiguous().data_ptr<float>(),
+            (float3 *)dL_dvdirs.contiguous().data_ptr<float>());
     }
 
     return std::make_tuple(dL_dshs, dL_dvdirs);

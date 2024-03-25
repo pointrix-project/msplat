@@ -398,41 +398,34 @@ if __name__ == "__main__":
     t = time.time()
     for i in range(iters):
         out_pytorch = compute_sh_torch_impl(sh_coeffs1, viewdirs1)
+
     torch.cuda.synchronize()
     print("  pytorch runtime: ", (time.time() - t) / iters, " s")
 
     t = time.time()
     for i in range(iters):
         out_cuda = gs.compute_sh(sh_coeffs2, viewdirs2)
-    
+
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
     
-    # print(out_pytorch)
-    # print(out_cuda)
-    
-    torch.testing.assert_close(out_pytorch, out_cuda, atol=5e-3, rtol=1e-4)
+    torch.testing.assert_close(out_pytorch, out_cuda, atol=5e-4, rtol=1e-5)
     print("Forward pass.")
     
     # ============================================ Backward =====================================
     print("backward: ")
     t = time.time()
-    loss = out_pytorch.sum()
+    loss = out_pytorch.mean()
     loss.backward()
     torch.cuda.synchronize()
     print("  pytorch runtime: ", (time.time() - t) / iters, " s")
 
     t = time.time()
-    loss2 = out_cuda.sum()
-    
+    loss2 = out_cuda.mean()
     loss2.backward()
     torch.cuda.synchronize()
-    
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
     
-    # print(sh_coeffs1.grad, sh_coeffs2.grad)
-    # print(viewdirs1.grad, viewdirs2.grad)
-    
-    torch.testing.assert_close(sh_coeffs1.grad, sh_coeffs2.grad, atol=5e-3, rtol=1e-4)
-    torch.testing.assert_close(viewdirs1.grad, viewdirs2.grad, atol=5e-3, rtol=1e-4)
+    torch.testing.assert_close(sh_coeffs1.grad, sh_coeffs2.grad, atol=5e-4, rtol=1e-5)
+    torch.testing.assert_close(viewdirs1.grad, viewdirs2.grad, atol=5e-4, rtol=1e-5)
     print("Backward pass.")
