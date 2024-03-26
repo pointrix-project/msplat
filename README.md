@@ -284,3 +284,21 @@ pip install git+https://github.com/NVlabs/nvdiffrast
 
 python tutorials/gs_3d.py --mesh <path/to/mesh.obj>
 ```
+
+## Acknowledgment
+We express our sincerest appreciation to the developers and contributors of the following projects:
+- [3D Gaussian Splatting](https://github.com/omry/omegaconf): 3D Gaussian Splatting for Real-Time Radiance Field Rendering.
+
+If you find that 3D gaussian splatting implemetation in our project is helpful for you, please consider to cite:
+```
+@Article{kerbl3Dgaussians,
+      author       = {Kerbl, Bernhard and Kopanas, Georgios and Leimk{\"u}hler, Thomas and Drettakis, George},
+      title        = {3D Gaussian Splatting for Real-Time Radiance Field Rendering},
+      journal      = {ACM Transactions on Graphics},
+      number       = {4},
+      volume       = {42},
+      month        = {July},
+      year         = {2023},
+      url          = {https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/}
+}
+```
