@@ -5,8 +5,7 @@ import torch.nn as nn
 from tqdm import tqdm
 import numpy as np
 import imageio
-
-import dptr.gs as gs
+import msplat
 
 class SimpleGaussian:
     def __init__(self, num_points=100000):
@@ -49,9 +48,8 @@ if __name__ == "__main__":
     seed = 123
     torch.manual_seed(seed)
     
-    img = imageio.imread("./media/dptr_logo.png")
+    img = imageio.imread("./data/stanford-bunny.jpg")
     img = img.astype(np.float32) / 255.0
-    img = img[:, :, 0:3] * img[:, :, 3:] + 1.0 * (1 - img[:, :, 3:])
     gt = torch.from_numpy(img).cuda().permute(2, 0, 1)
     
     C, H, W = gt.shape 
@@ -67,14 +65,14 @@ if __name__ == "__main__":
     
     gaussians = SimpleGaussian(num_points=10000)
     
-    max_iter = 2000
+    max_iter = 7000
     frames = []
     progress_bar = tqdm(range(1, max_iter), desc="Training")
     cal_loss = nn.SmoothL1Loss()
     
     for iteration in range(0, max_iter):
         
-        rendered_feature = gs.rasterization(
+        rendered_feature = msplat.rasterization(
             gaussians.get_attribute("xyz"),
             gaussians.get_attribute("scale"),
             gaussians.get_attribute("rotate"), 

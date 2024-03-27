@@ -1,31 +1,20 @@
 
 import os
 import glob
-from setuptools import setup
+from setuptools import setup, find_packages
 from torch.utils.cpp_extension import CUDAExtension, BuildExtension
 
 __version__ = "1.0.0"
 
-module_name = "dptr"
-submodule_names = [
-    "gs"
-    # more submodules in the future
-]
-
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-MODULAR_DIR = os.path.join(ROOT_DIR, module_name)
 
-def search_sources(submodule):
+def search_sources():
     
-    sources = glob.glob(os.path.join(f"{MODULAR_DIR}/{submodule}", "src/*.c"))
-    sources += glob.glob(os.path.join(f"{MODULAR_DIR}/{submodule}", "src/*.cu")) 
-    sources += glob.glob(os.path.join(f"{MODULAR_DIR}/{submodule}", "src/*.cpp"))
+    sources = glob.glob(os.path.join(f"{ROOT_DIR}", "msplat/src/*.c"))
+    sources += glob.glob(os.path.join(f"{ROOT_DIR}", "msplat/src/*.cu")) 
+    sources += glob.glob(os.path.join(f"{ROOT_DIR}", "msplat/src/*.cpp"))
 
     return sources
-
-
-def search_includes():
-    return glob.glob(os.path.join(f"{MODULAR_DIR}", "*/include"))
 
 
 def search_third_party():
@@ -44,28 +33,26 @@ def make_extensions():
     # -O3 for higher level of optimization
     # --use_fast_math for results in a faster runtime, but may sacrifice some mathematical precision.
     exts = [CUDAExtension(
-            name=f"{module_name}.{submodule}._C",
-            sources=search_sources(submodule),
-            include_dirs=search_includes()+search_third_party(),
-            # extra_compile_args={'cxx': ['-g'], 'nvcc': ['-g']},
+            name="msplat._C",
+            sources=search_sources(),
+            include_dirs= [os.path.join(f"{ROOT_DIR}", "msplat/include")] + search_third_party(),
             extra_compile_args={"cxx": ["-O3"], "nvcc": ["-O3", "--use_fast_math"]},
         )
-        for submodule in submodule_names
     ]
     
     return exts
 
 setup(
-    name="dptr",
+    name="msplat",
     version=__version__,
-    description="Differentiable PoinT Cloud Renderer (DPTR) powers POINTRIX for differentiable rendering of point clouds.",
-    url="https://github.com/pointrix-project/dptr",
+    description="a modular differential gaussian rasterization library",
+    url="https://github.com/pointrix-project/msplat",
+    packages=find_packages(),
     python_requires=">=3.7",
     install_requires=[
         "torch",
         "jaxtyping"
     ],
-    packages=[f"{module_name}"] + [f"{module_name}.{submodule}" for submodule in submodule_names],
     ext_modules=make_extensions(),
     cmdclass={"build_ext": BuildExtension}
 )

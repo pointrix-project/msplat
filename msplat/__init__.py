@@ -61,8 +61,7 @@ def rasterization(
         Background color.
     ndc: Float[Tensor, "P 2"]
         Just for storing the gradients of NDC coordinates for adaptive density control, by default None.
-
-
+        
     Returns
     -------
     feature_map : Float[Tensor, "C H W"]

@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 from jaxtyping import Float
-import dptr.gs._C as _C
+import msplat._C as _C
 
 
 def alpha_blending(

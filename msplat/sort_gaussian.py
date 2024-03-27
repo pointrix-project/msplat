@@ -2,7 +2,7 @@ import torch
 from torch import Tensor
 from typing import Tuple
 from jaxtyping import Float
-import dptr.gs._C as _C
+import msplat._C as _C
 
 
 def sort_gaussian(

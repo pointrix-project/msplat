@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import nvdiffrast.torch as dr
-import dptr.gs as gs
+import msplat
 
 import kiui
 from kiui.mesh import Mesh
@@ -126,7 +126,7 @@ class Model(nn.Module):
         # OpenGL camera to OpenCV camera
         pose[:3, 1:3] *= -1 # invert up & forward direction
 
-        color = gs.rasterization(
+        color = msplat.rasterization(
             self.xyzs,
             self.scales_act(self.scales), 
             self.rot_act(self.rot),
