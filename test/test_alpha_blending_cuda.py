@@ -51,8 +51,7 @@ def generate_covariance2d():
 
 if __name__ == "__main__":
     
-    cost_time = []
-    for c in range(1, 256):
+    for c in range(1, 42):
         iters = 100
         
         seed = 121
@@ -118,10 +117,4 @@ if __name__ == "__main__":
         
         cost = (time.time() - t) / iters
         print("channel: ", c, " cuda runtime: ", cost, " s")
-        
-        cost_time.append(cost)
-    
-    print(cost_time)
-    plt.plot(range(1, 256), cost_time)
-    plt.savefig("template.png")
     

@@ -56,8 +56,8 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
     torch.set_printoptions(precision=20)
     
-    iters = 1
-    N = 4
+    iters = 100
+    N = 1000
     
     print("=============================== running test on project_points ===============================")
     
@@ -76,8 +76,8 @@ if __name__ == "__main__":
     xyz[:, 1] = xyz[:, 1] * 500
     xyz[:, 2] = xyz[:, 2] * 400 + 400
 
-    xyz1 = xyz[2:3].clone().requires_grad_()
-    xyz2 = xyz[2:3].clone().requires_grad_()
+    xyz1 = xyz.clone().requires_grad_()
+    xyz2 = xyz.clone().requires_grad_()
     intr1 = intr.clone().requires_grad_()
     intr2 = intr.clone().requires_grad_()
     extr1 = extr.clone().requires_grad_()
@@ -113,8 +113,6 @@ if __name__ == "__main__":
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
     
-    print(out_pytorch_uv)
-    print(out_cuda_uv)
     torch.testing.assert_close(out_pytorch_uv, out_cuda_uv)
     torch.testing.assert_close(out_pytorch_depth, out_cuda_depth)
     print("Forward pass.")
@@ -134,10 +132,6 @@ if __name__ == "__main__":
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
 
     valid_num = torch.sum((out_cuda_depth != 0).float())
-    print(valid_num)
-    
-    print(xyz1.grad)
-    print(xyz2.grad)
     
     torch.testing.assert_close(xyz1.grad, xyz2.grad)
     # torch.testing.assert_close(intr1.grad / valid_num, intr2.grad / valid_num)

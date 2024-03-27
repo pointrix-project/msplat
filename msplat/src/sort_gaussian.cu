@@ -84,14 +84,10 @@ computeGaussianKey(const torch::Tensor &uv,
 
     const int P = uv.size(0);
 
-    try {
-        if (P == 0)
-            throw std::runtime_error("The point number is 0.");
-    } catch (std::runtime_error &e) {
-        printf("%s\n", e.what());
-    }
-
-    const int num_intersects = tiles[P - 1].item<int>();
+    int num_intersects = 0;
+    if(P > 0)
+        num_intersects = tiles[P - 1].item<int>();
+    
     const dim3 tile_grid(
         (W + BLOCK_X - 1) / BLOCK_X, (H + BLOCK_Y - 1) / BLOCK_Y, 1);
 
@@ -100,15 +96,16 @@ computeGaussianKey(const torch::Tensor &uv,
     torch::Tensor gaussian_idx = torch::zeros({num_intersects}, int32_opts);
     torch::Tensor gaussian_key = torch::zeros({num_intersects}, int64_opts);
 
-    computeGaussianKeyCUDAKernel<<<(P + 255) / 256, 256>>>(
-        P,
-        (float2 *)uv.contiguous().data_ptr<float>(),
-        depth.contiguous().data_ptr<float>(),
-        radius.contiguous().data_ptr<int>(),
-        tiles.contiguous().data_ptr<int>(),
-        tile_grid,
-        gaussian_key.data_ptr<int64_t>(),
-        gaussian_idx.data_ptr<int>());
+    if(P > 0)
+        computeGaussianKeyCUDAKernel<<<(P + 255) / 256, 256>>>(
+            P,
+            (float2 *)uv.contiguous().data_ptr<float>(),
+            depth.contiguous().data_ptr<float>(),
+            radius.contiguous().data_ptr<int>(),
+            tiles.contiguous().data_ptr<int>(),
+            tile_grid,
+            gaussian_key.data_ptr<int64_t>(),
+            gaussian_idx.data_ptr<int>());
 
     return std::make_tuple(gaussian_key, gaussian_idx);
 }
@@ -123,24 +120,21 @@ torch::Tensor computeTileGaussianRange(const int W,
 
     const int P = tiles.size(0);
 
-    try {
-        if (P == 0)
-            throw std::runtime_error("The point number is 0.");
-    } catch (std::runtime_error &e) {
-        printf("%s\n", e.what());
-    }
+    int num_intersects = 0;
+    if(P > 0)
+        num_intersects = tiles[P - 1].item<int>();
 
-    const int num_intersects = tiles[P - 1].item<int>();
     int num_tiles =
         int((W + BLOCK_X - 1) / BLOCK_X) * int((H + BLOCK_Y - 1) / BLOCK_Y);
 
     auto int32_opts = tiles.options().dtype(torch::kInt32);
     torch::Tensor tile_range = torch::zeros({num_tiles, 2}, int32_opts);
 
-    computeTileGaussianRangeCUDAKernel<<<(num_intersects + 255) / 256, 256>>>(
-        num_intersects,
-        key_sorted.contiguous().data_ptr<int64_t>(),
-        (int2 *)tile_range.data_ptr<int>());
+    if(num_intersects > 0)
+        computeTileGaussianRangeCUDAKernel<<<(num_intersects + 255) / 256, 256>>>(
+            num_intersects,
+            key_sorted.contiguous().data_ptr<int64_t>(),
+            (int2 *)tile_range.data_ptr<int>());
 
     return tile_range;
 }
