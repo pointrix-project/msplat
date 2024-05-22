@@ -1,6 +1,6 @@
 
 import torch
-import dptr.gs as gs
+import msplat as ms
 
 if __name__ == "__main__":
     
@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     uv[2, 0] = 8
     uv[2, 1] = 8
-    depth[2, 0] = 2.0
+    depth[2, 0] = 1.5
     radius[2, 0] = 16
     tiles[2, 0] = 2
 
@@ -37,10 +37,16 @@ if __name__ == "__main__":
     radius[3, 0] = 1
     tiles[3, 0] = 1
 
-    idx_sorted, tile_range = gs.sort_gaussian(uv, depth, w, h, radius, tiles)
+    idx_sorted, tile_range = ms.sort_gaussian2(uv, depth, w, h, radius, tiles)
 
     target_idx_sorted = torch.tensor([0, 2, 2, 1, 3], device='cuda:0', dtype=torch.int32)
     target_tile_range = torch.tensor([[0, 2], [2, 5]], device='cuda:0', dtype=torch.int32)
+    
+    print(idx_sorted)
+    print(target_idx_sorted)
+    
+    print(tile_range)
+    print(target_tile_range)
     
     torch.testing.assert_close(idx_sorted, target_idx_sorted)
     torch.testing.assert_close(tile_range, target_tile_range)

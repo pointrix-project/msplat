@@ -45,3 +45,19 @@ torch::Tensor computeTileGaussianRange(const int W,
                                        const int H,
                                        const torch::Tensor &tiles,
                                        const torch::Tensor &key_sorted);
+
+std::tuple<torch::Tensor, torch::Tensor>
+sortGaussian(const torch::Tensor &uv,
+             const torch::Tensor &depth,
+             const int W,
+             const int H,
+             const torch::Tensor &radius,
+             const torch::Tensor &tiles);
+
+std::tuple<torch::Tensor, torch::Tensor>
+sortGaussianFast(const torch::Tensor &uv,
+             const torch::Tensor &depth,
+             const int W,
+             const int H,
+             const torch::Tensor &radius,
+             const torch::Tensor &tiles);
