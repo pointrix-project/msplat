@@ -37,7 +37,7 @@ if __name__ == "__main__":
     radius[3, 0] = 1
     tiles[3, 0] = 1
 
-    idx_sorted, tile_range = ms.sort_gaussian2(uv, depth, w, h, radius, tiles)
+    idx_sorted, tile_range = ms.sort_gaussian(uv, depth, w, h, radius, tiles)
 
     target_idx_sorted = torch.tensor([0, 2, 2, 1, 3], device='cuda:0', dtype=torch.int32)
     target_tile_range = torch.tensor([[0, 2], [2, 5]], device='cuda:0', dtype=torch.int32)

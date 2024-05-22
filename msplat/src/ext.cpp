@@ -19,8 +19,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("ewa_project_backward", &EWAProjectBackward);
     m.def("compute_gaussian_key", &computeGaussianKey);
     m.def("compute_tile_gaussian_range", &computeTileGaussianRange);
-    m.def("sort_gaussian", &sortGaussian);
-    m.def("sort_gaussian_fast", &sortGaussianFast);
     m.def("compute_sh_forward", &computeSHForward);
     m.def("compute_sh_backward", &computeSHBackward);
     m.def("alpha_blending_forward", &alphaBlendingForward);
