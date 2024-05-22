@@ -2,7 +2,7 @@
 import time
 import torch
 import numpy as np
-import dptr.gs as gs
+import msplat as ms
 from scipy.special import sph_harm
 
 def compute_sh_torch_impl(sh_coeffs, viewdirs):
@@ -404,7 +404,7 @@ if __name__ == "__main__":
 
     t = time.time()
     for i in range(iters):
-        out_cuda = gs.compute_sh(sh_coeffs2, viewdirs2)
+        out_cuda = ms.compute_sh(sh_coeffs2, viewdirs2)
 
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")

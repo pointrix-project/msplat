@@ -3,7 +3,7 @@ import math
 import time
 import torch
 import numpy as np
-import dptr.gs as gs
+import msplat as ms
 import matplotlib.pyplot as plt
 
 def get_tiles(uv, radius, W, H):
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         (
             idx_sorted, 
             tile_range
-        ) = gs.sort_gaussian(
+        ) = ms.sort_gaussian(
             uv, 
             depth, 
             w, 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
         # ============================================ Forward =====================================
         t = time.time()
         for i in range(iters):
-            rendered_feature = gs.alpha_blending(
+            rendered_feature = ms.alpha_blending(
                 uv, 
                 conic, 
                 opacity, 

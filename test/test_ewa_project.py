@@ -2,7 +2,7 @@
 import time
 import math
 import torch
-import dptr.gs as gs
+import msplat as ms
 
 BLOCK_X = 16
 BLOCK_Y = 16
@@ -160,13 +160,13 @@ if __name__ == "__main__":
     rand_quats = torch.rand(N, 4, device="cuda", dtype=torch.float)
     rand_uquats = rand_quats / torch.norm(rand_quats, 2, dim=-1, keepdim=True)
     
-    cov3d = gs.compute_cov3d(rand_scale, rand_uquats)
+    cov3d = ms.compute_cov3d(rand_scale, rand_uquats)
     
     # project points
     (
         uv,
         depth 
-    ) = gs.project_point(
+    ) = ms.project_point(
         xyz, 
         intr, 
         extr,
@@ -213,7 +213,7 @@ if __name__ == "__main__":
             out_conic_cuda, 
             out_radius_cuda, 
             out_tiles_cuda
-        ) = gs.ewa_project(
+        ) = ms.ewa_project(
             xyz2,
             cov3d2, 
             intr2,

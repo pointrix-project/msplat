@@ -2,7 +2,7 @@
 import time
 import math
 import torch
-import dptr.gs as gs
+import msplat as ms
 
 
 def project_point_torch_impl(
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         (
             out_cuda_uv,
             out_cuda_depth 
-        ) = gs.project_point(
+        ) = ms.project_point(
             xyz2, 
             intr2, 
             extr2,

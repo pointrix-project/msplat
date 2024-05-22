@@ -1,7 +1,7 @@
 
 import math
 import torch
-import dptr.gs as gs
+import msplat as ms
 
 def alpha_blending_torch_impl(
     uv,
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     (
         idx_sorted, 
         tile_range
-    ) = gs.sort_gaussian(
+    ) = ms.sort_gaussian(
         uv, 
         depth, 
         w, 
@@ -171,7 +171,7 @@ if __name__ == "__main__":
         h
     )
     
-    render_feature_cuda = gs.alpha_blending(
+    render_feature_cuda = ms.alpha_blending(
         uv2, 
         conic2, 
         opacity2, 

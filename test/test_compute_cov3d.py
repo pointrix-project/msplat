@@ -1,7 +1,7 @@
 
 import time
 import torch
-import dptr.gs as gs
+import msplat as ms
 
 
 def compute_cov3d_torch_impl(scales, uquats):
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     t = time.time()
     for i in range(iters):
-        out_cuda = gs.compute_cov3d(scales2, uquats2)
+        out_cuda = ms.compute_cov3d(scales2, uquats2)
     
     torch.cuda.synchronize()
     print("  cuda runtime: ", (time.time() - t) / iters, " s")
