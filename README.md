@@ -80,7 +80,7 @@ bg: float = 0 # scalar, background for rendered feature maps
 
 # =================== one-line interface =================== 
 rendered_image = gs.rasterization(
-    xyzs, scales, rotations, opacity, feats, intr, extr, H, W, bg
+    xyzs, scales, rotations, opacity, feats, intr, extr, W, H, bg
 ) # [C, H, W]
 
 # =================== steps interface =================== 
