@@ -11,7 +11,7 @@ def project_point(
     extr: Float[Tensor, "3 4"],
     W: int,
     H: int,
-    nearest: float = 0.2,
+    nearest: float = 0.0,
     extent: float = 1.3,
 ) -> Tuple:
     """
