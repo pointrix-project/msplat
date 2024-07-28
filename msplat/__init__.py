@@ -90,7 +90,7 @@ def rasterization(
 
     # alpha blending
     render_feature = alpha_blending(
-        uv, conic, opacity, feature, gaussian_ids_sorted, tile_range, bg, W, H, ndc, GeneratorExit
+        uv, conic, opacity, feature, gaussian_ids_sorted, tile_range, bg, W, H, ndc, accum_squ_grad
     )
 
     return render_feature
