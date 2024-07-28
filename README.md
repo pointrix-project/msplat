@@ -8,12 +8,34 @@ MSplat is a modular differential gaussian rasterization library. We have refacto
 - The camera model has been changed from FOV to pinhole.
 - Optimization on camera model is support.
 - SH evaluation is now supported up to level 10.
-- Differentiable rendering of extensible features (RGB, depth and even more) is now supported. 
+- Differentiable multi-target rendering (MTR), i.e. rgb map, depth map and even more
+
+## Todo list
+- [ ] Enhance efficiency.
+  - [x] Add a simple UI for measuring rendering efficiency.
+  - [ ] Provide a multi-tiered API that balances modularity and efficiency.
+  - [ ] A more accurate method of intersection between 2D Gaussians and tiles.
+  - [ ] More efficient sorting.
+- [ ] Support for orthographic projection.
+- [ ] Support batch camera rendeirng.
+- [x] Accumalate square gradient of screen-space position for better densitification (GoF).
 
 ## How to install
+Clone the project and submodules:
 ```shell
 git clone https://github.com/pointrix-project/msplat.git --recursive
 cd msplat
+pip install .
+```
+Or clone the project first and then submodules:
+```shell
+git clone https://github.com/pointrix-project/msplat.git 
+cd msplat
+
+# submodules
+git submodule update --init --recursive
+
+# install
 pip install .
 ```
 
@@ -51,7 +73,7 @@ In our API, you need to provide the camera parameters in the following format:
 - Extrinsic Parameters $[R_{cw}|t_{cw}]$
 
 ## Optimization on Camera
-It hasn't been validated too much. Since a camera is involved in the optimization of many 3D Gaussian points, the gradient of the camera is  accumulating, potentially leading to numerical issues.
+It hasn't been validated too much. Since a camera is involved in the optimization of many 3D Gaussian points, the gradient of the camera is accumulating, potentially leading to numerical issues.
 
 ## High-level SH
 We have upgraded the level of the Spherical Harmonics (SH) from the original 3 to 10.

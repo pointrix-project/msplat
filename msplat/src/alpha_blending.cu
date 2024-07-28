@@ -122,6 +122,7 @@ __global__ void __launch_bounds__(BLOCK_X *BLOCK_Y)
                                     const int C,
                                     const int W,
                                     const int H,
+                                    const bool accum_squ_grad,
                                     float *__restrict__ final_T,
                                     int *__restrict__ ncontrib,
                                     const float *__restrict__ dL_drendered,
@@ -232,9 +233,15 @@ __global__ void __launch_bounds__(BLOCK_X *BLOCK_Y)
             const float2 dG_dvec = {
                 -G * vec.x * conic2d.x - G * vec.y * conic2d.y,
                 -G * vec.y * conic2d.z - G * vec.x * conic2d.y};
-
-            atomicAdd(&dL_duv[global_id].x, dL_dG * dG_dvec.x);
-            atomicAdd(&dL_duv[global_id].y, dL_dG * dG_dvec.y);
+            
+            if (accum_squ_grad){
+                atomicAdd(&dL_duv[global_id].x, dL_dG * dL_dG * dG_dvec.x * dG_dvec.x);
+                atomicAdd(&dL_duv[global_id].y, dL_dG * dL_dG * dG_dvec.y * dG_dvec.y);
+            }
+            else{
+                atomicAdd(&dL_duv[global_id].x, dL_dG * dG_dvec.x);
+                atomicAdd(&dL_duv[global_id].y, dL_dG * dG_dvec.y);
+            }
             atomicAdd(&dL_dconic[global_id].x,
                       -0.5f * G * vec.x * vec.x * dL_dG);
             atomicAdd(&dL_dconic[global_id].y, -G * vec.x * vec.y * dL_dG);
@@ -405,7 +412,8 @@ alphaBlendingBackward(const torch::Tensor &uv,
                       const int H,
                       const torch::Tensor &final_T,
                       const torch::Tensor &ncontrib,
-                      const torch::Tensor &dL_drendered) {
+                      const torch::Tensor &dL_drendered,
+                      const bool accum_squ_grad) {
     CHECK_INPUT(uv);
     CHECK_INPUT(conic);
     CHECK_INPUT(opacity);
@@ -450,6 +458,7 @@ alphaBlendingBackward(const torch::Tensor &uv,
                 C - C0,
                 W,
                 H,
+                accum_squ_grad,
                 final_T.contiguous().data_ptr<float>(),
                 ncontrib.contiguous().data_ptr<int>(),
                 dL_drendered.contiguous().data_ptr<float>() + img_data_offset,
@@ -471,6 +480,7 @@ alphaBlendingBackward(const torch::Tensor &uv,
                 C - C0,
                 W,
                 H,
+                accum_squ_grad,
                 final_T.contiguous().data_ptr<float>(),
                 ncontrib.contiguous().data_ptr<int>(),
                 dL_drendered.contiguous().data_ptr<float>() + img_data_offset,
@@ -492,6 +502,7 @@ alphaBlendingBackward(const torch::Tensor &uv,
                 C - C0,
                 W,
                 H,
+                accum_squ_grad,
                 final_T.contiguous().data_ptr<float>(),
                 ncontrib.contiguous().data_ptr<int>(),
                 dL_drendered.contiguous().data_ptr<float>() + img_data_offset,
@@ -513,6 +524,7 @@ alphaBlendingBackward(const torch::Tensor &uv,
                 C - C0,
                 W,
                 H,
+                accum_squ_grad,
                 final_T.contiguous().data_ptr<float>(),
                 ncontrib.contiguous().data_ptr<int>(),
                 dL_drendered.contiguous().data_ptr<float>() + img_data_offset,
@@ -534,6 +546,7 @@ alphaBlendingBackward(const torch::Tensor &uv,
                 C - C0,
                 W,
                 H,
+                accum_squ_grad,
                 final_T.contiguous().data_ptr<float>(),
                 ncontrib.contiguous().data_ptr<int>(),
                 dL_drendered.contiguous().data_ptr<float>() + img_data_offset,
@@ -555,6 +568,7 @@ alphaBlendingBackward(const torch::Tensor &uv,
                 C - C0,
                 W,
                 H,
+                accum_squ_grad,
                 final_T.contiguous().data_ptr<float>(),
                 ncontrib.contiguous().data_ptr<int>(),
                 dL_drendered.contiguous().data_ptr<float>() + img_data_offset,

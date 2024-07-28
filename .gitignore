@@ -8,3 +8,5 @@ build
 *gif
 third_party/*
 tmp*
+*.ply
+*egg.info

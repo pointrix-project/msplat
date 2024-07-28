@@ -14,7 +14,8 @@ def alpha_blending(
     bg: float,
     W: int,
     H: int,
-    ndc: Float[Tensor, "P 2"]=None
+    ndc: Float[Tensor, "P 2"]=None,
+    accum_squ_grad: bool = False
 ) -> Float[Tensor, "C H W"]:
     """
     Alpha Blending for sorted 2D planar Gaussian in a tile based manner.
@@ -41,6 +42,8 @@ def alpha_blending(
         Height of the image.
     ndc: Float[Tensor, "P 2"]
         Just for storing the gradients of NDC coordinates for adaptive density control, by default None
+    accum_squ_grad: bool
+        Accumulate the square screen-space gradient for better densitification.
 
     Returns
     -------
@@ -49,13 +52,13 @@ def alpha_blending(
     """
 
     return _AlphaBlending.apply(
-        uv, conic, opacity, feature, idx_sorted, title_bins, bg, W, H, ndc
+        uv, conic, opacity, feature, idx_sorted, title_bins, bg, W, H, ndc, accum_squ_grad
     )
 
 
 class _AlphaBlending(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, uv, conic, opacity, feature, idx_sorted, tile_range, bg, W, H, ndc):
+    def forward(ctx, uv, conic, opacity, feature, idx_sorted, tile_range, bg, W, H, ndc, accum_squ_grad):
         (render_feature, final_T, ncontrib) = _C.alpha_blending_forward(
             uv, conic, opacity, feature, idx_sorted, tile_range, bg, W, H
         )
@@ -64,6 +67,7 @@ class _AlphaBlending(torch.autograd.Function):
         ctx.H = H
         ctx.bg = bg
         ctx.ndc = ndc
+        ctx.accum_squ_grad = accum_squ_grad
         
         ctx.save_for_backward(
             uv, conic, opacity, feature, idx_sorted, tile_range, final_T, ncontrib
@@ -77,6 +81,7 @@ class _AlphaBlending(torch.autograd.Function):
         H = ctx.H
         bg = ctx.bg
         ndc = ctx.ndc
+        accum_squ_grad = ctx.accum_squ_grad
 
         (
             uv,
@@ -102,6 +107,7 @@ class _AlphaBlending(torch.autograd.Function):
             final_T,
             ncontrib,
             dL_drendered,
+            accum_squ_grad
         )
         
         dL_dndc = None

@@ -59,6 +59,8 @@ alphaBlendingForward(const torch::Tensor &uv,
  * @param[in] ncontrib              Number of contributions per point.
  * @param[in] dL_drendered          Gradient of the loss with respect to the
  * rendered image.
+ * @param[in] accum_squ_grad        Accumulate the square screen-space gradient 
+ * for better densitification.
  * @return std::tuple<torch::Tensor, torch::Tensor, torch::Tensor,
  * torch::Tensor> <br> (1)<b>dL_duv</b> gradients with respect to uv. <br>
  *         (2)<b>dL_dconic</b> gradients with respect to conic. <br>
@@ -77,4 +79,5 @@ alphaBlendingBackward(const torch::Tensor &uv,
                       const int H,
                       const torch::Tensor &final_T,
                       const torch::Tensor &ncontrib,
-                      const torch::Tensor &dL_drendered);
+                      const torch::Tensor &dL_drendered,
+                      const bool accum_squ_grad);
